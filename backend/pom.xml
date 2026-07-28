@@ -13,7 +13,7 @@
 
     <groupId>com.zoro</groupId>
     <artifactId>law-firm-oa</artifactId>
-    <version>0.1.0-SNAPSHOT</version>
+    <version>0.2.0-p0.dev.1</version>
     <name>law-firm-oa</name>
 
     <properties>

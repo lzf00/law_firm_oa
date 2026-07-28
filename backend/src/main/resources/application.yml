@@ -42,8 +42,11 @@ management:
         enabled: true
 
 app:
+  tenant:
+    organization-id: ${APP_ORGANIZATION_ID:}
   auth:
     mode: ${AUTH_MODE:dingtalk}
+    cookie-secure: ${AUTH_COOKIE_SECURE:true}
   storage:
     endpoint: ${STORAGE_ENDPOINT:}
     public-endpoint: ${STORAGE_PUBLIC_ENDPOINT:${STORAGE_ENDPOINT:}}

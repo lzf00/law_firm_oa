@@ -3,6 +3,9 @@ package com.zoro.legaloa.identity;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import com.zoro.legaloa.common.BusinessException;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -12,13 +15,44 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/public")
 public class TenantController {
     private final JdbcClient jdbcClient;
+    private final String configuredOrganizationId;
 
-    public TenantController(JdbcClient jdbcClient) {
+    public TenantController(
+            JdbcClient jdbcClient,
+            @Value("${app.tenant.organization-id:}") String configuredOrganizationId
+    ) {
         this.jdbcClient = jdbcClient;
+        this.configuredOrganizationId = configuredOrganizationId;
     }
 
     @GetMapping("/tenant-config")
     TenantConfiguration configuration() {
+        UUID organizationId = resolveOrganizationId();
+        return configuration(organizationId);
+    }
+
+    private UUID resolveOrganizationId() {
+        if (configuredOrganizationId != null && !configuredOrganizationId.isBlank()) {
+            try {
+                return UUID.fromString(configuredOrganizationId);
+            } catch (IllegalArgumentException exception) {
+                throw tenantNotConfigured();
+            }
+        }
+        List<UUID> organizations = jdbcClient.sql("""
+                        SELECT id
+                        FROM organizations
+                        WHERE status = 'ACTIVE' AND deleted_at IS NULL
+                        """)
+                .query(UUID.class)
+                .list();
+        if (organizations.size() != 1) {
+            throw tenantNotConfigured();
+        }
+        return organizations.getFirst();
+    }
+
+    private TenantConfiguration configuration(UUID organizationId) {
         return jdbcClient.sql("""
                         SELECT o.id,
                                COALESCE(s.brand_name_zh, o.name) AS brand_name_zh,
@@ -32,10 +66,10 @@ public class TenantController {
                                s.website_url
                         FROM organizations o
                         LEFT JOIN organization_settings s ON s.organization_id = o.id
-                        WHERE o.status = 'ACTIVE' AND o.deleted_at IS NULL
-                        ORDER BY o.created_at
-                        LIMIT 1
+                        WHERE o.id = :organizationId
+                          AND o.status = 'ACTIVE' AND o.deleted_at IS NULL
                         """)
+                .param("organizationId", organizationId)
                 .query((rs, rowNum) -> new TenantConfiguration(
                         rs.getObject("id", UUID.class),
                         rs.getString("brand_name_zh"),
@@ -48,7 +82,16 @@ public class TenantController {
                         rs.getString("base_currency"),
                         rs.getString("website_url")
                 ))
-                .single();
+                .optional()
+                .orElseThrow(TenantController::tenantNotConfigured);
+    }
+
+    private static BusinessException tenantNotConfigured() {
+        return new BusinessException(
+                "TENANT_NOT_CONFIGURED",
+                "系统尚未配置有效的所属组织",
+                HttpStatus.SERVICE_UNAVAILABLE
+        );
     }
 
     public record TenantConfiguration(

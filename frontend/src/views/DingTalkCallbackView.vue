@@ -3,6 +3,7 @@ import { onMounted, ref } from 'vue'
 import { CircleAlert, LoaderCircle, ShieldCheck } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/api/http'
+import { markBrowserSessionAuthenticated } from '@/router'
 
 const router = useRouter()
 const state = ref<'loading' | 'error'>('loading')
@@ -19,11 +20,10 @@ onMounted(async () => {
   }
   try {
     const response = await http.post<{
-      accessToken: string
       expiresIn: number
       displayName: string
     }>('/auth/dingtalk/exchange', { authorizationCode, state: stateToken })
-    sessionStorage.setItem('law_oa_access_token', response.data.accessToken)
+    markBrowserSessionAuthenticated()
     await router.replace('/')
     window.location.reload()
   } catch (error) {

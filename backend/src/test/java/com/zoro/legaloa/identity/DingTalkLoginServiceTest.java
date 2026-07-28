@@ -10,11 +10,14 @@ import static org.mockito.Mockito.when;
 
 import com.zoro.legaloa.common.BusinessException;
 import java.time.Duration;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 
 class DingTalkLoginServiceTest {
+    private static final UUID ORGANIZATION_ID =
+            UUID.fromString("00000000-0000-0000-0000-000000000201");
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
 
     @Test
@@ -46,7 +49,7 @@ class DingTalkLoginServiceTest {
                 .contains("redirect_uri=https%3A%2F%2Foa.example.test%2Fauth%2Fdingtalk%2Fcallback");
         verify(values).set(
                 startsWith("lawoa:oauth-state:"),
-                eq("PENDING"),
+                eq(ORGANIZATION_ID.toString()),
                 eq(Duration.ofMinutes(10))
         );
     }
@@ -54,9 +57,13 @@ class DingTalkLoginServiceTest {
     @Test
     void shouldConsumeStateExactlyOnce() {
         DingTalkLoginService service = service("dingtalk");
-        when(redis.delete("lawoa:oauth-state:valid-state")).thenReturn(true, false);
+        @SuppressWarnings("unchecked")
+        ValueOperations<String, String> values = mock(ValueOperations.class);
+        when(redis.opsForValue()).thenReturn(values);
+        when(values.getAndDelete("lawoa:oauth-state:valid-state"))
+                .thenReturn(ORGANIZATION_ID.toString(), (String) null);
 
-        service.consumeState("valid-state");
+        assertThat(service.consumeState("valid-state")).isEqualTo(ORGANIZATION_ID);
 
         assertThatThrownBy(() -> service.consumeState("valid-state"))
                 .isInstanceOf(BusinessException.class)
@@ -69,7 +76,8 @@ class DingTalkLoginServiceTest {
                 mode,
                 "ding-test-client",
                 "test-client-secret",
-                "https://oa.example.test/auth/dingtalk/callback"
+                "https://oa.example.test/auth/dingtalk/callback",
+                ORGANIZATION_ID.toString()
         );
     }
 }

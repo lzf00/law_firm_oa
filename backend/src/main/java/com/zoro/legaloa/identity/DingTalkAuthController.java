@@ -5,10 +5,9 @@ import com.zoro.legaloa.common.BusinessException;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import java.util.Map;
+import jakarta.servlet.http.HttpServletResponse;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,54 +19,49 @@ import org.springframework.web.bind.annotation.RestController;
 public class DingTalkAuthController {
     private final DingTalkAuthClient dingTalkAuthClient;
     private final SessionTokenService sessionTokenService;
-    private final JdbcClient jdbcClient;
     private final AuditService auditService;
     private final DingTalkLoginService dingTalkLoginService;
+    private final BrowserSessionCookieService cookieService;
+    private final IdentityDirectory identityDirectory;
 
     public DingTalkAuthController(
             DingTalkAuthClient dingTalkAuthClient,
             SessionTokenService sessionTokenService,
-            JdbcClient jdbcClient,
             AuditService auditService,
-            DingTalkLoginService dingTalkLoginService
+            DingTalkLoginService dingTalkLoginService,
+            BrowserSessionCookieService cookieService,
+            IdentityDirectory identityDirectory
     ) {
         this.dingTalkAuthClient = dingTalkAuthClient;
         this.sessionTokenService = sessionTokenService;
-        this.jdbcClient = jdbcClient;
         this.auditService = auditService;
         this.dingTalkLoginService = dingTalkLoginService;
+        this.cookieService = cookieService;
+        this.identityDirectory = identityDirectory;
     }
 
     @PostMapping("/exchange")
     @Transactional
-    ExchangeResponse exchange(@Valid @RequestBody ExchangeRequest request) {
-        dingTalkLoginService.consumeState(request.state());
+    ExchangeResponse exchange(
+            @Valid @RequestBody ExchangeRequest request,
+            HttpServletResponse response
+    ) {
+        UUID organizationId = dingTalkLoginService.consumeState(request.state());
         DingTalkAuthClient.DingTalkIdentity identity = dingTalkAuthClient.exchange(request.authorizationCode());
-        Map<String, Object> user = jdbcClient.sql("""
-                        SELECT id, organization_id, username, display_name
-                        FROM users
-                        WHERE dingtalk_user_id = :externalId
-                          AND status = 'ACTIVE' AND deleted_at IS NULL
-                        """)
-                .param("externalId", identity.externalId())
-                .query()
-                .listOfRows()
-                .stream()
-                .findFirst()
+        RequestActor actor = identityDirectory
+                .findActiveByDingTalkId(identity.externalId(), organizationId)
                 .orElseThrow(() -> new BusinessException(
                         "DINGTALK_USER_NOT_SYNCED",
                         "该钉钉账号尚未同步到本系统，请联系管理员",
                         HttpStatus.FORBIDDEN
                 ));
-        RequestActor actor = new RequestActor(
-                (UUID) user.get("id"),
-                (UUID) user.get("organization_id"),
-                (String) user.get("username"),
-                (String) user.get("display_name")
+        String token = sessionTokenService.issue(actor);
+        response.addHeader(
+                "Set-Cookie",
+                cookieService.create(token, SessionTokenService.SESSION_TTL)
         );
-        String token = sessionTokenService.issue(actor.username());
         auditService.success(actor, "DINGTALK_LOGIN", "USER", actor.userId());
-        return new ExchangeResponse(token, 8 * 60 * 60, actor.displayName());
+        return new ExchangeResponse(8 * 60 * 60, actor.displayName());
     }
 
     public record ExchangeRequest(
@@ -75,5 +69,5 @@ public class DingTalkAuthController {
             @NotBlank @Size(max = 128) String state
     ) {}
 
-    public record ExchangeResponse(String accessToken, int expiresIn, String displayName) {}
+    public record ExchangeResponse(int expiresIn, String displayName) {}
 }

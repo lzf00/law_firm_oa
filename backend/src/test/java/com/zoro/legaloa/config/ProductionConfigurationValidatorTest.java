@@ -18,6 +18,7 @@ class ProductionConfigurationValidatorTest {
         ProductionConfigurationValidator.Settings settings =
                 new ProductionConfigurationValidator.Settings(
                         "dev",
+                        "replace_with_organization_uuid",
                         "jdbc:postgresql://localhost:5432/law_oa",
                         "law_oa",
                         "replace_with_secret_manager_reference",
@@ -48,6 +49,7 @@ class ProductionConfigurationValidatorTest {
         ProductionConfigurationValidator.Settings settings =
                 new ProductionConfigurationValidator.Settings(
                         base.authMode(),
+                        base.organizationId(),
                         base.databaseUrl(),
                         base.databaseUsername(),
                         base.databasePassword(),
@@ -71,6 +73,7 @@ class ProductionConfigurationValidatorTest {
     private ProductionConfigurationValidator.Settings validSettings() {
         return new ProductionConfigurationValidator.Settings(
                 "dingtalk",
+                "00000000-0000-0000-0000-000000000201",
                 "jdbc:postgresql://postgres.launch-check.internal:5432/law_oa",
                 "law_oa_app",
                 "database-secret",

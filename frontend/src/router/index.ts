@@ -80,6 +80,28 @@ const router = createRouter({
 })
 
 let authMode: 'dev' | 'dingtalk' | null = null
+let browserSessionAuthenticated: boolean | null = null
+
+export function markBrowserSessionAuthenticated() {
+  browserSessionAuthenticated = true
+}
+
+export function clearBrowserSessionAuthentication() {
+  browserSessionAuthenticated = false
+}
+
+async function hasBrowserSession() {
+  if (browserSessionAuthenticated === true) {
+    return true
+  }
+  try {
+    const response = await fetch('/api/me', { credentials: 'same-origin' })
+    browserSessionAuthenticated = response.ok
+  } catch {
+    browserSessionAuthenticated = false
+  }
+  return browserSessionAuthenticated
+}
 
 router.beforeEach(async (to) => {
   if (to.name === 'login' || to.name === 'dingtalk-callback') {
@@ -96,7 +118,7 @@ router.beforeEach(async (to) => {
   }
   const authenticated = authMode === 'dev'
     ? sessionStorage.getItem('law_oa_demo_entered') === 'true'
-    : Boolean(sessionStorage.getItem('law_oa_access_token'))
+    : await hasBrowserSession()
   if (!authenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }

@@ -1,5 +1,7 @@
 package com.zoro.legaloa.identity;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.security.SecureRandom;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
@@ -12,28 +14,47 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class SessionTokenService {
-    private static final Duration SESSION_TTL = Duration.ofHours(8);
+    static final Duration SESSION_TTL = Duration.ofHours(8);
     private static final String KEY_PREFIX = "lawoa:session:";
     private final SecureRandom secureRandom = new SecureRandom();
     private final StringRedisTemplate redisTemplate;
+    private final ObjectMapper objectMapper;
 
-    public SessionTokenService(StringRedisTemplate redisTemplate) {
+    public SessionTokenService(StringRedisTemplate redisTemplate, ObjectMapper objectMapper) {
         this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
     }
 
-    public String issue(String username) {
+    public String issue(RequestActor actor) {
         byte[] bytes = new byte[32];
         secureRandom.nextBytes(bytes);
         String token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
-        redisTemplate.opsForValue().set(redisKey(token), username, SESSION_TTL);
+        try {
+            redisTemplate.opsForValue().set(
+                    redisKey(token),
+                    objectMapper.writeValueAsString(SessionSubject.from(actor)),
+                    SESSION_TTL
+            );
+        } catch (JsonProcessingException exception) {
+            throw new IllegalStateException("Unable to serialize session subject", exception);
+        }
         return token;
     }
 
-    public Optional<String> resolve(String token) {
+    public Optional<SessionSubject> resolve(String token) {
         if (token == null || token.length() < 32 || token.length() > 128) {
             return Optional.empty();
         }
-        return Optional.ofNullable(redisTemplate.opsForValue().get(redisKey(token)));
+        String value = redisTemplate.opsForValue().get(redisKey(token));
+        if (value == null || value.isBlank()) {
+            return Optional.empty();
+        }
+        try {
+            return Optional.of(objectMapper.readValue(value, SessionSubject.class));
+        } catch (JsonProcessingException | IllegalArgumentException exception) {
+            revoke(token);
+            return Optional.empty();
+        }
     }
 
     public void revoke(String token) {

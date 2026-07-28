@@ -7,6 +7,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.zoro.legaloa.identity.BrowserSessionCookieService;
 import com.zoro.legaloa.identity.SessionTokenService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -29,6 +30,9 @@ class ConflictCheckControllerTest {
 
     @MockitoBean
     SessionTokenService sessionTokenService;
+
+    @MockitoBean
+    BrowserSessionCookieService browserSessionCookieService;
 
     @Test
     @WithMockUser

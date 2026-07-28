@@ -10,6 +10,7 @@ services:
       - no-new-privileges:true
     environment:
       SPRING_PROFILES_ACTIVE: prod
+      APP_ORGANIZATION_ID: ${APP_ORGANIZATION_ID}
       DB_URL: ${DB_URL}
       DB_USERNAME: ${DB_USERNAME}
       DB_PASSWORD: ${DB_PASSWORD}

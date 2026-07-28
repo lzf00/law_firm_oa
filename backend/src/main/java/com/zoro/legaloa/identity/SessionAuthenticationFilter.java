@@ -15,9 +15,14 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 public class SessionAuthenticationFilter extends OncePerRequestFilter {
     private final SessionTokenService sessionTokenService;
+    private final BrowserSessionCookieService cookieService;
 
-    public SessionAuthenticationFilter(SessionTokenService sessionTokenService) {
+    public SessionAuthenticationFilter(
+            SessionTokenService sessionTokenService,
+            BrowserSessionCookieService cookieService
+    ) {
         this.sessionTokenService = sessionTokenService;
+        this.cookieService = cookieService;
     }
 
     @Override
@@ -26,14 +31,12 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
             HttpServletResponse response,
             FilterChain filterChain
     ) throws ServletException, IOException {
-        String authorization = request.getHeader("Authorization");
-        if (authorization != null
-                && authorization.startsWith("Bearer ")
-                && SecurityContextHolder.getContext().getAuthentication() == null) {
-            sessionTokenService.resolve(authorization.substring(7))
-                    .ifPresent(username -> SecurityContextHolder.getContext().setAuthentication(
+        if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            resolveToken(request)
+                    .flatMap(sessionTokenService::resolve)
+                    .ifPresent(subject -> SecurityContextHolder.getContext().setAuthentication(
                             new UsernamePasswordAuthenticationToken(
-                                    username,
+                                    subject,
                                     null,
                                     List.of(new SimpleGrantedAuthority("ROLE_USER"))
                             )
@@ -41,5 +44,12 @@ public class SessionAuthenticationFilter extends OncePerRequestFilter {
         }
         filterChain.doFilter(request, response);
     }
-}
 
+    private java.util.Optional<String> resolveToken(HttpServletRequest request) {
+        String authorization = request.getHeader("Authorization");
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            return java.util.Optional.of(authorization.substring(7));
+        }
+        return cookieService.read(request);
+    }
+}

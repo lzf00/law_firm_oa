@@ -1,17 +1,17 @@
 ## 1. Repository and Baseline
 
-- [ ] 1.1 Initialize the standalone Git repository, connect the authorized GitHub remote, and publish the protected implementation branch without including secrets or generated artifacts
+- [x] 1.1 Initialize the standalone Git repository, connect the authorized GitHub remote, and publish the protected implementation branch without including secrets or generated artifacts
 - [x] 1.2 Capture backend, frontend, API smoke, browser E2E, production-config, security-scan, and backup/restore baseline results
-- [ ] 1.3 Add release version metadata, changelog convention, migration checklist, and rollback checklist
+- [x] 1.3 Add release version metadata, changelog convention, migration checklist, and rollback checklist
 
 ## 2. P0 Tenant Identity Security
 
-- [ ] 2.1 Add a versioned organization-bound session subject and invalidate username-only sessions
-- [ ] 2.2 Resolve request actors by session user ID and organization ID and reject inactive or mismatched membership
-- [ ] 2.3 Require explicit production tenant selection and remove first-organization fallback
-- [ ] 2.4 Bind DingTalk state/exchange and external-user lookup to the selected organization
-- [ ] 2.5 Move the production browser session to Secure HttpOnly SameSite cookies with logout and expiry handling
-- [ ] 2.6 Add two-organization authentication, duplicate-username, duplicate-external-ID, and cross-tenant denial tests
+- [x] 2.1 Add a versioned organization-bound session subject and invalidate username-only sessions
+- [x] 2.2 Resolve request actors by session user ID and organization ID and reject inactive or mismatched membership
+- [x] 2.3 Require explicit production tenant selection and remove first-organization fallback
+- [x] 2.4 Bind DingTalk state/exchange and external-user lookup to the selected organization
+- [x] 2.5 Move the production browser session to Secure HttpOnly SameSite cookies with logout and expiry handling
+- [x] 2.6 Add two-organization authentication, duplicate-username, duplicate-external-ID, and cross-tenant denial tests
 
 ## 3. P0 Core Legal Workflow Completion
 

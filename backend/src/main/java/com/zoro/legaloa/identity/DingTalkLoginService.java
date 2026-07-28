@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.util.Base64;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpStatus;
@@ -21,19 +22,22 @@ public class DingTalkLoginService {
     private final String clientId;
     private final String clientSecret;
     private final String redirectUri;
+    private final String organizationId;
 
     public DingTalkLoginService(
             StringRedisTemplate redisTemplate,
             @Value("${app.auth.mode}") String authMode,
             @Value("${app.dingtalk.client-id}") String clientId,
             @Value("${app.dingtalk.client-secret}") String clientSecret,
-            @Value("${app.dingtalk.redirect-uri:}") String redirectUri
+            @Value("${app.dingtalk.redirect-uri:}") String redirectUri,
+            @Value("${app.tenant.organization-id:}") String organizationId
     ) {
         this.redisTemplate = redisTemplate;
         this.authMode = authMode;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.redirectUri = redirectUri;
+        this.organizationId = organizationId;
     }
 
     public LoginConfiguration configuration() {
@@ -45,7 +49,8 @@ public class DingTalkLoginService {
         byte[] random = new byte[24];
         secureRandom.nextBytes(random);
         String state = Base64.getUrlEncoder().withoutPadding().encodeToString(random);
-        redisTemplate.opsForValue().set(STATE_PREFIX + state, "PENDING", STATE_TTL);
+        UUID tenantId = configuredOrganizationId();
+        redisTemplate.opsForValue().set(STATE_PREFIX + state, tenantId.toString(), STATE_TTL);
         String authorizationUrl = "https://login.dingtalk.com/oauth2/auth"
                 + "?redirect_uri=" + encode(redirectUri)
                 + "&response_type=code"
@@ -56,18 +61,47 @@ public class DingTalkLoginService {
         return new AuthorizationResponse(authorizationUrl, STATE_TTL.toSeconds());
     }
 
-    public void consumeState(String state) {
+    public UUID consumeState(String state) {
         if (state == null || state.isBlank() || state.length() > 128) {
             throw invalidState();
         }
-        Boolean deleted = redisTemplate.delete(STATE_PREFIX + state);
-        if (!Boolean.TRUE.equals(deleted)) {
+        String tenantId = redisTemplate.opsForValue().getAndDelete(STATE_PREFIX + state);
+        if (tenantId == null) {
+            throw invalidState();
+        }
+        try {
+            return UUID.fromString(tenantId);
+        } catch (IllegalArgumentException exception) {
             throw invalidState();
         }
     }
 
     private boolean isConfigured() {
-        return !clientId.isBlank() && !clientSecret.isBlank() && !redirectUri.isBlank();
+        return !clientId.isBlank()
+                && !clientSecret.isBlank()
+                && !redirectUri.isBlank()
+                && validOrganizationId();
+    }
+
+    private UUID configuredOrganizationId() {
+        try {
+            return UUID.fromString(organizationId);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException(
+                    "TENANT_NOT_CONFIGURED",
+                    "尚未配置登录所属组织",
+                    HttpStatus.SERVICE_UNAVAILABLE
+            );
+        }
+    }
+
+    private boolean validOrganizationId() {
+        try {
+            UUID.fromString(organizationId);
+            return true;
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
     private static String encode(String value) {

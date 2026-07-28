@@ -63,7 +63,7 @@ node scripts/smoke-test.mjs
 python3 tests/e2e_browser.py
 ```
 
-当前验收基线为 59 个后端单元/边界测试、3 个前端权限策略单元测试、39 项 API
+当前验收基线为 69 个后端单元/边界测试、3 个前端权限策略单元测试、39 项 API
 功能验证和一套桌面/移动端
 Playwright 端到端验收。API 验证覆盖公开双语租户配置、匿名访问拦截、全球办公室与
 跨境案件字段、成员范围隔离、对象存储直传、文件 SHA-256 校验、下载内容一致性、
@@ -114,5 +114,7 @@ scripts/verify-backup.sh /absolute/path/to/law_firm_oa/backups/<timestamp>
 
 生产规格、网络隔离、对象存储 CORS、备份恢复、监控告警和发布回滚见
 [`docs/PRODUCTION_OPERATIONS.md`](docs/PRODUCTION_OPERATIONS.md)。
+版本与发布变化见 [`CHANGELOG.md`](CHANGELOG.md)，每次上线前应复制并完成
+[`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)。
 本阶段完整开发与验收结论见
 [`docs/DEVELOPMENT_REPORT_2026-07-28_STAGE5.md`](docs/DEVELOPMENT_REPORT_2026-07-28_STAGE5.md)。

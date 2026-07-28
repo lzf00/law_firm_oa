@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { clearBrowserSessionAuthentication } from '@/router'
 import {
   Archive,
   Bell,
@@ -107,8 +108,8 @@ async function logout() {
   } catch {
     // 本地状态仍应清除，避免失效会话把用户留在业务页面。
   }
-  sessionStorage.removeItem('law_oa_access_token')
   sessionStorage.removeItem('law_oa_demo_entered')
+  clearBrowserSessionAuthentication()
   user.value = null
   await router.replace('/login')
 }

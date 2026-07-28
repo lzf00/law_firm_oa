@@ -6,6 +6,7 @@ import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
@@ -17,6 +18,7 @@ public class ProductionConfigurationValidator {
 
     public ProductionConfigurationValidator(
             @Value("${app.auth.mode}") String authMode,
+            @Value("${app.tenant.organization-id}") String organizationId,
             @Value("${spring.datasource.url}") String databaseUrl,
             @Value("${spring.datasource.username}") String databaseUsername,
             @Value("${spring.datasource.password}") String databasePassword,
@@ -31,6 +33,7 @@ public class ProductionConfigurationValidator {
     ) {
         this.settings = new Settings(
                 authMode,
+                organizationId,
                 databaseUrl,
                 databaseUsername,
                 databasePassword,
@@ -60,6 +63,7 @@ public class ProductionConfigurationValidator {
         if (!"dingtalk".equals(settings.authMode())) {
             errors.add("app.auth.mode must be dingtalk");
         }
+        requireOrganizationId(settings.organizationId(), errors);
         requireSecret("database username", settings.databaseUsername(), errors);
         requireSecret("database password", settings.databasePassword(), errors);
         requireHost("Redis host", settings.redisHost(), errors);
@@ -81,6 +85,14 @@ public class ProductionConfigurationValidator {
     private static void requireSecret(String name, String value, List<String> errors) {
         if (isPlaceholder(value)) {
             errors.add(name + " must be configured with a non-placeholder value");
+        }
+    }
+
+    private static void requireOrganizationId(String value, List<String> errors) {
+        try {
+            UUID.fromString(value);
+        } catch (RuntimeException exception) {
+            errors.add("app.tenant.organization-id must be a valid UUID");
         }
     }
 
@@ -136,6 +148,7 @@ public class ProductionConfigurationValidator {
 
     record Settings(
             String authMode,
+            String organizationId,
             String databaseUrl,
             String databaseUsername,
             String databasePassword,
