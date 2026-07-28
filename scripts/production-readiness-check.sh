@@ -45,11 +45,17 @@ docker exec "${database_container}" \
 
 common_environment=(
   -e SPRING_PROFILES_ACTIVE=prod
+  -e APP_ORGANIZATION_ID=00000000-0000-0000-0000-000000000201
+  -e APP_VERSION=readiness-check
   -e DB_URL="jdbc:postgresql://${database_container}:5432/${database_name}"
   -e DB_USERNAME="${database_user}"
   -e DB_PASSWORD="${database_password}"
-  -e REDIS_HOST=redis
+  -e REDIS_HOST=redis.launch-check.internal
   -e REDIS_PORT=6379
+  -e REDIS_USERNAME=law-oa-readiness
+  -e REDIS_PASSWORD=readiness-redis-secret
+  -e REDIS_SSL_ENABLED=true
+  -e MANAGEMENT_HEALTH_REDIS_ENABLED=false
   -e STORAGE_ENDPOINT=http://minio:9000
   -e STORAGE_PUBLIC_ENDPOINT=https://files.launch-check.test
   -e STORAGE_ACCESS_KEY=law_oa_local
@@ -58,6 +64,8 @@ common_environment=(
   -e DINGTALK_CLIENT_ID=launch-check-client
   -e DINGTALK_CLIENT_SECRET=launch-check-secret
   -e DINGTALK_REDIRECT_URI=https://oa.launch-check.test/auth/dingtalk/callback
+  -e DOCUMENT_SCANNER_MODE=clamav
+  -e CLAMAV_HOST=clamav.launch-check.internal
 )
 
 docker run -d \
@@ -86,8 +94,12 @@ test "${ready}" = "true"
 
 migration_summary="$(docker exec "${database_container}" \
   psql -U "${database_user}" -d "${database_name}" -Atc \
-  "SELECT count(*) || ':' || max(version) FROM flyway_schema_history WHERE success")"
-test "${migration_summary}" = "9:9"
+  "SELECT count(*) || ':' || max(version::integer) FROM flyway_schema_history WHERE success")"
+expected_migration="$(find backend/src/main/resources/db/migration -maxdepth 1 \
+  -type f -name 'V*__*.sql' \
+  | sed -E 's#^.*/V([0-9]+)__.*#\1#' \
+  | sort -n | tail -1)"
+test "${migration_summary}" = "${expected_migration}:${expected_migration}"
 
 seed_counts="$(docker exec "${database_container}" \
   psql -U "${database_user}" -d "${database_name}" -Atc \

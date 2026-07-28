@@ -12,6 +12,9 @@ import {
   ContactRound,
   FileCheck2,
   FileStack,
+  Landmark,
+  LibraryBig,
+  Settings2,
   Gavel,
   Globe2,
   LayoutDashboard,
@@ -96,6 +99,7 @@ const navGroups = [
       { to: '/tasks', labelKey: 'nav.tasks', icon: ListTodo },
       { to: '/leave', labelKey: 'nav.leave', icon: CalendarDays },
       { to: '/expenses', labelKey: 'nav.expenses', icon: ReceiptText },
+      { to: '/finance', labelKey: 'nav.finance', icon: Landmark },
       { to: '/meetings', labelKey: 'nav.meetings', icon: Building2 },
     ],
   },
@@ -105,6 +109,7 @@ const navGroups = [
       { to: '/announcements', labelKey: 'nav.announcements', icon: Megaphone },
       { to: '/directory', labelKey: 'nav.directory', icon: ContactRound },
       { to: '/offices', labelKey: 'nav.offices', icon: Globe2 },
+      { to: '/admin', labelKey: 'nav.admin', icon: Settings2 },
     ],
   },
   {
@@ -114,6 +119,7 @@ const navGroups = [
       { to: '/conflicts', labelKey: 'nav.conflicts', icon: SearchCheck },
       { to: '/contracts', labelKey: 'nav.contracts', icon: FileStack },
       { to: '/documents', labelKey: 'nav.documents', icon: FileStack },
+      { to: '/document-governance', labelKey: 'nav.documentGovernance', icon: LibraryBig },
       { to: '/archives', labelKey: 'nav.archives', icon: Archive },
     ],
   },
@@ -186,6 +192,7 @@ function safeNotificationTarget(actionUrl?: string) {
   const allowed = [
     '/matters', '/approvals', '/tasks', '/announcements', '/deadlines',
     '/contracts', '/documents', '/archives', '/expenses', '/leave', '/meetings',
+    '/document-governance', '/finance', '/admin',
   ]
   return allowed.some((prefix) => parsed.pathname === prefix || parsed.pathname.startsWith(`${prefix}/`))
     ? `${parsed.pathname}${parsed.search}${parsed.hash}`

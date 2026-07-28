@@ -8,6 +8,7 @@ import com.zoro.legaloa.common.BusinessException;
 import com.zoro.legaloa.identity.OrganizationSyncController.DepartmentSnapshot;
 import com.zoro.legaloa.identity.OrganizationSyncController.OrganizationSyncRequest;
 import com.zoro.legaloa.identity.OrganizationSyncController.OrganizationSyncResult;
+import com.zoro.legaloa.identity.OrganizationSyncController.OrganizationSyncDryRun;
 import com.zoro.legaloa.identity.OrganizationSyncController.UserSnapshot;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -135,6 +136,83 @@ public class OrganizationSyncService {
             );
             throw exception;
         }
+    }
+
+    public OrganizationSyncDryRun dryRun(OrganizationSyncRequest request) {
+        RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "ORGANIZATION_SYNC");
+        String provider = request.provider().toUpperCase(Locale.ROOT);
+        if (!Set.of("DINGTALK", "FEISHU", "MANUAL").contains(provider)) {
+            throw new BusinessException(
+                    "SYNC_PROVIDER_INVALID", "组织同步来源无效", HttpStatus.BAD_REQUEST
+            );
+        }
+        int departmentsToCreate = 0;
+        int departmentsToUpdate = 0;
+        for (DepartmentSnapshot department : request.departments()) {
+            if (findExternalDepartment(
+                    actor.organizationId(), provider, department.externalDepartmentId()
+            ) == null) {
+                departmentsToCreate++;
+            } else {
+                departmentsToUpdate++;
+            }
+        }
+        int usersToCreate = 0;
+        int usersToUpdate = 0;
+        Set<UUID> seen = new HashSet<>();
+        for (UserSnapshot user : request.users()) {
+            UUID existing = findExternalUser(
+                    actor.organizationId(), provider, user.externalUserId()
+            );
+            if (existing == null) {
+                existing = jdbcClient.sql("""
+                                SELECT id FROM users
+                                WHERE organization_id = :organizationId
+                                  AND username = :username
+                                """)
+                        .param("organizationId", actor.organizationId())
+                        .param("username", user.username().trim())
+                        .query(UUID.class).optional().orElse(null);
+            }
+            if (existing == null) {
+                usersToCreate++;
+            } else {
+                usersToUpdate++;
+                seen.add(existing);
+            }
+        }
+        int usersToDeactivate = 0;
+        if ("FULL".equalsIgnoreCase(request.mode()) && request.deactivateMissingUsers()) {
+            usersToDeactivate = jdbcClient.sql("""
+                            SELECT COUNT(*)
+                            FROM users u
+                            JOIN external_identities ei ON ei.user_id = u.id
+                            WHERE u.organization_id = :organizationId
+                              AND ei.provider = :provider AND u.status = 'ACTIVE'
+                              AND u.id NOT IN (:seenUsers)
+                            """)
+                    .param("organizationId", actor.organizationId())
+                    .param("provider", provider)
+                    .param("seenUsers", seen.isEmpty() ? List.of(new UUID(0, 0)) : seen)
+                    .query(Integer.class).single();
+        }
+        List<String> warnings = request.users().isEmpty()
+                ? List.of("Snapshot contains no users; apply is intentionally not automatic")
+                : List.of();
+        auditService.record(
+                actor, "ORGANIZATION_SYNC_DRY_RUN", "ORGANIZATION", actor.organizationId(),
+                "SUCCESS", null, Map.of(
+                        "provider", provider,
+                        "departmentsToCreate", departmentsToCreate,
+                        "usersToCreate", usersToCreate,
+                        "usersToDeactivate", usersToDeactivate
+                )
+        );
+        return new OrganizationSyncDryRun(
+                provider, departmentsToCreate, departmentsToUpdate,
+                usersToCreate, usersToUpdate, usersToDeactivate, warnings
+        );
     }
 
     public List<OrganizationSyncResult> runs() {

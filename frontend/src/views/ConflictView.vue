@@ -4,11 +4,10 @@ import { SearchCheck, ShieldCheck } from '@lucide/vue'
 import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
 import type { Party } from '@/api/types'
-import { translate as t, useI18n } from '@/i18n'
+import { translate as t, translateWithParams as tp, useI18n } from '@/i18n'
 import { formatLegalCode } from '@/legalFormat'
 
 const { locale } = useI18n()
-const text = (zh: string, en: string) => locale.value === 'en-US' ? en : zh
 interface ConflictHit {
   partyId: string
   partyName: string
@@ -45,7 +44,7 @@ async function runCheck() {
       partyIds: selected.value,
     })).data
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('检索失败', 'Conflict search failed'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0085'))
   } finally {
     checking.value = false
   }
@@ -58,45 +57,45 @@ async function runCheck() {
       <div>
         <span class="eyebrow">CONFLICT CHECK</span>
         <h2>{{ t('headline.conflicts') }}</h2>
-        <p>{{ text('检索客户、相对方、历史案件与主体关联；正式结论仍需合伙人复核。', 'Search clients, opposing parties, historical matters and party relationships; a partner must still review the formal conclusion.') }}</p>
+        <p>{{ t('copy.0086') }}</p>
       </div>
     </div>
 
     <div class="conflict-layout">
       <div class="panel conflict-form">
-        <div class="form-number">01</div>
+        <div class="form-number" aria-hidden="true">01</div>
         <label>
-          <span>{{ text('拟办事项', 'Proposed engagement') }}</span>
-          <input v-model="matterTitle" :placeholder="text('例如：华辰科技采购合同争议', 'e.g. Acme procurement contract dispute')" />
+          <span>{{ t('copy.0087') }}</span>
+          <input v-model="matterTitle" :placeholder="t('copy.0088')" />
         </label>
         <label>
-          <span>{{ text('涉及主体', 'Involved parties') }}</span>
+          <span>{{ t('copy.0089') }}</span>
           <select v-model="selected" multiple>
             <option v-for="party in parties" :key="party.id" :value="party.id">{{ party.displayName }}</option>
           </select>
-          <small>{{ text('按住 Command / Ctrl 可多选', 'Hold Command / Ctrl to select multiple parties') }}</small>
+          <small>{{ t('copy.0090') }}</small>
         </label>
         <button class="primary-action full" :disabled="!canCheck || checking" @click="runCheck">
-          <SearchCheck :size="18" /> {{ checking ? text('正在交叉检索…', 'Searching…') : text('开始冲突检索', 'Run conflict check') }}
+          <SearchCheck :size="18" /> {{ checking ? t('copy.0091') : t('copy.0092') }}
         </button>
       </div>
 
       <div class="panel result-panel" :class="result?.riskLevel.toLowerCase()">
         <template v-if="!result">
           <ShieldCheck :size="44" stroke-width="1.3" />
-          <h3>{{ text('等待检索', 'Ready to search') }}</h3>
-          <p>{{ text('结果将展示命中案件与当事人角色，不会自动替代人工判断。', 'Results show matching matters and party roles but never replace professional judgment.') }}</p>
+          <h3>{{ t('copy.0093') }}</h3>
+          <p>{{ t('copy.0094') }}</p>
         </template>
         <template v-else>
           <span class="eyebrow">PREVIEW RESULT</span>
           <div class="result-score">{{ formatLegalCode(result.riskLevel, locale) }}</div>
-          <h3>{{ text(`发现 ${result.hitCount} 条关联记录`, `${result.hitCount} related records found`) }}</h3>
+          <h3>{{ tp('copy.dynamic.conflictHits', { count: result.hitCount }) }}</h3>
           <div v-for="hit in result.hits" :key="`${hit.matterId}-${hit.partyId}`" class="conflict-hit">
             <strong>{{ hit.partyName }}</strong>
             <span>{{ hit.matterNumber }} · {{ hit.matterTitle }}</span>
             <small>{{ formatLegalCode(hit.side, locale) }} / {{ formatLegalCode(hit.partyRole, locale) }} / {{ formatLegalCode(hit.matterStatus, locale) }}</small>
           </div>
-          <p v-if="result.hitCount === 0">{{ text('当前主体未命中历史案件，可提交正式审核。', 'No historical matter matched these parties. You may submit a formal review.') }}</p>
+          <p v-if="result.hitCount === 0">{{ t('copy.0095') }}</p>
         </template>
       </div>
     </div>

@@ -10,6 +10,7 @@ RUN apk upgrade --no-cache \
     && adduser -S app -G app
 WORKDIR /app
 COPY --from=build /workspace/target/law-firm-oa-*.jar app.jar
+COPY --from=build /workspace/target/classes/META-INF/sbom/application.cdx.json /opt/sbom/backend.cdx.json
 USER app
 EXPOSE 8080
 ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]

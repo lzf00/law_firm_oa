@@ -23,6 +23,9 @@ public class ProductionConfigurationValidator {
             @Value("${spring.datasource.username}") String databaseUsername,
             @Value("${spring.datasource.password}") String databasePassword,
             @Value("${spring.data.redis.host}") String redisHost,
+            @Value("${spring.data.redis.username:}") String redisUsername,
+            @Value("${spring.data.redis.password:}") String redisPassword,
+            @Value("${spring.data.redis.ssl.enabled:false}") boolean redisSslEnabled,
             @Value("${app.storage.endpoint}") String storageEndpoint,
             @Value("${app.storage.public-endpoint}") String storagePublicEndpoint,
             @Value("${app.storage.access-key}") String storageAccessKey,
@@ -40,6 +43,9 @@ public class ProductionConfigurationValidator {
                 databaseUsername,
                 databasePassword,
                 redisHost,
+                redisUsername,
+                redisPassword,
+                redisSslEnabled,
                 storageEndpoint,
                 storagePublicEndpoint,
                 storageAccessKey,
@@ -71,6 +77,11 @@ public class ProductionConfigurationValidator {
         requireSecret("database username", settings.databaseUsername(), errors);
         requireSecret("database password", settings.databasePassword(), errors);
         requireHost("Redis host", settings.redisHost(), errors);
+        requireSecret("Redis username", settings.redisUsername(), errors);
+        requireSecret("Redis password", settings.redisPassword(), errors);
+        if (!settings.redisSslEnabled()) {
+            errors.add("spring.data.redis.ssl.enabled must be true");
+        }
         requireSecret("storage access key", settings.storageAccessKey(), errors);
         requireSecret("storage secret key", settings.storageSecretKey(), errors);
         requireSecret("DingTalk client ID", settings.dingTalkClientId(), errors);
@@ -161,6 +172,9 @@ public class ProductionConfigurationValidator {
             String databaseUsername,
             String databasePassword,
             String redisHost,
+            String redisUsername,
+            String redisPassword,
+            boolean redisSslEnabled,
             String storageEndpoint,
             String storagePublicEndpoint,
             String storageAccessKey,

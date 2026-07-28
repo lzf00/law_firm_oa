@@ -40,6 +40,8 @@ WAF / 负载均衡
 ```
 
 - 数据库、Redis 和对象存储管理端口不得暴露公网。
+- Redis 使用独立 ACL 用户、强密码和 TLS；应用通过 `REDIS_USERNAME`、
+  `REDIS_PASSWORD`、`REDIS_SSL_ENABLED=true` 连接。
 - 对象桶保持私有；上传链接 15 分钟、下载链接 5 分钟失效。
 - 钉钉应用回调域名使用 OA 的 HTTPS 域名，生产禁用 `X-Dev-User`。
 - 数据库账号只授予当前 schema 的 DML/DDL 权限；对象存储账号只允许指定桶。
@@ -75,6 +77,9 @@ WAF / 负载均衡
 6. 由负载均衡把 HTTPS 请求转发到 `127.0.0.1:8080`，验证钉钉免登、文件上传、
    文件下载、审批和审计日志。
 7. 先导入 5–10 名试点人员，运行一周后再同步全员。
+
+边缘 TLS 和双层限流参考 `deploy/edge-nginx.conf.example`；应用桶最小权限参考
+`deploy/object-storage-policy.json`。两者必须按正式域名、证书路径和桶名审阅后使用。
 
 ## 5. 对象存储 CORS
 
@@ -121,6 +126,17 @@ scripts/verify-backup.sh /absolute/path/to/law_firm_oa/backups/<timestamp>
 审计表后自动删除临时数据库。该脚本用于验证恢复流程，不替代生产 PITR、跨区域对象复制
 和云厂商备份策略。
 
+生产导出的备份目录可使用下列命令做 AES-256 对称加密、解密校验和滚动保留：
+
+```bash
+BACKUP_ENCRYPTION_KEY_FILE=/secure/law-oa-backup.key \
+BACKUP_RETENTION_DAYS=35 \
+scripts/encrypt-and-retain-backup.sh /absolute/path/to/law_firm_oa/backups/<timestamp>
+```
+
+密钥文件必须是普通文件且权限为 `400` 或 `600`，不得与备份位于同一账号或存储区。
+备份脚本可通过 `BACKUP_METRICS_FILE` 输出 Prometheus textfile 指标。
+
 ## 7. 监控和告警
 
 至少采集：
@@ -130,6 +146,9 @@ scripts/verify-backup.sh /absolute/path/to/law_firm_oa/backups/<timestamp>
 - 对象存储：4xx/5xx、容量增长、上传失败、版本复制延迟。
 - 业务：登录失败、权限拒绝激增、下载量异常、逾期任务、流程堆积、
   `outbox_events.status=DEAD`、组织同步失败。
+- OA 指标：`law_oa_outbox_*`、`law_oa_documents_scan_queue`、
+  `law_oa_notifications_unread`、`law_oa_security_events_open_high`、
+  `law_oa_job_duration_*` 和 `law_oa_backup_last_*`。
 
 建议告警：健康检查连续 3 次失败、5xx 超过 2%、数据库磁盘超过 75%、备份失败，
 以及 `document_security_events` 出现 `HIGH/OPEN`。应用现已在单用户 5 分钟第 10 次

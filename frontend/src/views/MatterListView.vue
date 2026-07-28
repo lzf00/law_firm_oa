@@ -32,10 +32,10 @@ const form = reactive({
 })
 const selectedOffice = computed(() => offices.value.find((office) => office.id === form.officeId))
 const statusFilters = computed(() => [
-  { value: '', label: locale.value === 'en-US' ? 'All' : '全部' },
-  { value: 'ACTIVE', label: locale.value === 'en-US' ? 'Active' : '在办' },
-  { value: 'CONFLICT_REVIEW', label: locale.value === 'en-US' ? 'Intake' : '待立案' },
-  { value: 'ARCHIVED', label: locale.value === 'en-US' ? 'Archived' : '已归档' },
+  { value: '', label: t('copy.0362') },
+  { value: 'ACTIVE', label: t('copy.0363') },
+  { value: 'CONFLICT_REVIEW', label: t('copy.0364') },
+  { value: 'ARCHIVED', label: t('copy.0365') },
 ])
 let searchTimer: number | undefined
 
@@ -49,7 +49,7 @@ async function loadMatters() {
       },
     })).data
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('案件加载失败', 'Failed to load matters'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0258'))
   } finally {
     loading.value = false
   }
@@ -67,7 +67,7 @@ async function load() {
     if (!form.responsibleUserId) form.responsibleUserId = meResult.data.userId
     if (!form.officeId) selectOffice(offices.value[0]?.id ?? '')
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('案件加载失败', 'Failed to load matters'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0258'))
   }
   await loadMatters()
 }
@@ -83,9 +83,7 @@ function selectOffice(officeId: string) {
 
 async function createMatter() {
   if (!form.matterNumber.trim() || !form.title.trim()) {
-    return ElMessage.warning(locale.value === 'en-US'
-      ? 'Matter number and title are required'
-      : '请填写案号和案件名称')
+    return ElMessage.warning(t('copy.0366'))
   }
   saving.value = true
   try {
@@ -101,9 +99,9 @@ async function createMatter() {
       jurisdiction: '',
     })
     await load()
-    ElMessage.success(locale.value === 'en-US' ? 'Matter created' : '案件创建成功')
+    ElMessage.success(t('copy.0367'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('案件创建失败', 'Failed to create matter'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0259'))
   } finally {
     saving.value = false
   }
@@ -123,15 +121,15 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer))
       <div>
         <span class="eyebrow">MATTER MANAGEMENT</span>
         <h2>{{ t('headline.matters') }}</h2>
-        <p>{{ text('按承办关系管理团队、期限、文档与卷宗，敏感案件独立授权。', 'Manage teams, deadlines, documents and archives by engagement relationship, with separate authorization for sensitive matters.') }}</p>
+        <p>{{ t('copy.0260') }}</p>
       </div>
-      <button class="primary-action" @click="dialogVisible = true"><Plus :size="17" /> {{ locale === 'en-US' ? 'New matter' : '新建案件' }}</button>
+      <button class="primary-action" @click="dialogVisible = true"><Plus :size="17" /> {{ t('copy.0368') }}</button>
     </div>
 
     <div class="toolbar">
       <label class="search-box">
         <Search :size="17" />
-        <input v-model="query" :placeholder="text('搜索案号、案件名称或承办律师', 'Search matter number, title or counsel')" />
+        <input v-model="query" :placeholder="t('copy.0261')" />
       </label>
       <div class="filter-tabs">
         <button
@@ -143,11 +141,11 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer))
       </div>
     </div>
 
-    <div class="panel table-panel">
-      <div v-if="loading" class="empty-state">{{ text('正在加载案件…', 'Loading matters…') }}</div>
+    <div class="panel table-panel" tabindex="0">
+      <div v-if="loading" class="empty-state">{{ t('copy.0116') }}</div>
       <table v-else>
         <thead>
-          <tr><th>{{ text('案号', 'Matter no.') }}</th><th>{{ text('案件', 'Matter') }}</th><th>{{ text('办公室', 'Office') }}</th><th>{{ text('司法辖区', 'Jurisdiction') }}</th><th>{{ text('承办律师', 'Counsel') }}</th><th>{{ text('状态', 'Status') }}</th></tr>
+          <tr><th>{{ t('copy.0262') }}</th><th>{{ t('copy.0263') }}</th><th>{{ t('copy.0264') }}</th><th>{{ t('copy.0251') }}</th><th>{{ t('copy.0265') }}</th><th>{{ t('copy.0189') }}</th></tr>
         </thead>
         <tbody>
           <tr
@@ -169,27 +167,27 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer))
       </table>
       <div v-if="!loading && matters.length === 0" class="empty-state">
         <BriefcaseBusiness :size="32" />
-        <strong>{{ text('尚未创建案件', 'No matters yet') }}</strong>
-        <span>{{ text('先完成利益冲突检索，再发起立案。', 'Complete conflict clearance before opening a matter.') }}</span>
+        <strong>{{ t('copy.0117') }}</strong>
+        <span>{{ t('copy.0266') }}</span>
       </div>
     </div>
 
     <ElDialog
       v-model="dialogVisible"
-      :title="locale === 'en-US' ? 'Create cross-border matter' : '新建跨境案件'"
+      :title="t('copy.0369')"
       width="min(720px, 92vw)"
     >
       <form class="dialog-form two-column-form" @submit.prevent="createMatter">
-        <label><span>{{ locale === 'en-US' ? 'Matter number' : '案号' }}</span><input v-model="form.matterNumber" required /></label>
-        <label><span>{{ locale === 'en-US' ? 'Matter type' : '案件类型' }}</span><select v-model="form.matterType"><option value="CROSS_BORDER">{{ formatLegalCode('CROSS_BORDER', locale) }}</option><option value="LITIGATION">{{ formatLegalCode('LITIGATION', locale) }}</option><option value="ARBITRATION">{{ formatLegalCode('ARBITRATION', locale) }}</option><option value="CORPORATE">{{ formatLegalCode('CORPORATE', locale) }}</option></select></label>
-        <label class="full-field"><span>{{ locale === 'en-US' ? 'Matter title' : '案件名称' }}</span><input v-model="form.title" required /></label>
-        <label><span>{{ locale === 'en-US' ? 'Responsible counsel' : '承办律师' }}</span><select v-model="form.responsibleUserId"><option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName }}</option></select></label>
-        <label><span>{{ locale === 'en-US' ? 'Lead office' : '承办办公室' }}</span><select :value="form.officeId" @change="selectOffice(($event.target as HTMLSelectElement).value)"><option v-for="office in offices" :key="office.id" :value="office.id">{{ locale === 'en-US' ? office.nameEn : office.nameZh }}</option></select></label>
-        <label><span>{{ locale === 'en-US' ? 'Jurisdiction' : '司法辖区' }}</span><input v-model="form.jurisdiction" :placeholder="selectedOffice ? `${selectedOffice.countryCode} · ${selectedOffice.cityEn}` : ''" /></label>
-        <label><span>{{ locale === 'en-US' ? 'Working language' : '工作语言' }}</span><select v-model="form.workingLanguage"><option value="zh-CN">{{ formatLegalCode('zh-CN', locale) }}</option><option value="en-US">{{ formatLegalCode('en-US', locale) }}</option><option value="ar">{{ formatLegalCode('ar', locale) }}</option></select></label>
-        <label><span>{{ locale === 'en-US' ? 'Country code' : '国家代码' }}</span><input v-model="form.countryCode" maxlength="2" /></label>
-        <label><span>{{ locale === 'en-US' ? 'Billing currency' : '结算币种' }}</span><input v-model="form.billingCurrency" maxlength="3" /></label>
-        <button class="primary-action full full-field" type="submit" :disabled="saving">{{ saving ? 'Saving…' : (locale === 'en-US' ? 'Create matter' : '创建案件') }}</button>
+        <label><span>{{ t('copy.0370') }}</span><input v-model="form.matterNumber" required /></label>
+        <label><span>{{ t('copy.0246') }}</span><select v-model="form.matterType"><option value="CROSS_BORDER">{{ formatLegalCode('CROSS_BORDER', locale) }}</option><option value="LITIGATION">{{ formatLegalCode('LITIGATION', locale) }}</option><option value="ARBITRATION">{{ formatLegalCode('ARBITRATION', locale) }}</option><option value="CORPORATE">{{ formatLegalCode('CORPORATE', locale) }}</option></select></label>
+        <label class="full-field"><span>{{ t('copy.0245') }}</span><input v-model="form.title" required /></label>
+        <label><span>{{ t('copy.0222') }}</span><select v-model="form.responsibleUserId"><option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName }}</option></select></label>
+        <label><span>{{ t('copy.0247') }}</span><select :value="form.officeId" @change="selectOffice(($event.target as HTMLSelectElement).value)"><option v-for="office in offices" :key="office.id" :value="office.id">{{ locale === 'en-US' ? office.nameEn : office.nameZh }}</option></select></label>
+        <label><span>{{ t('copy.0251') }}</span><input v-model="form.jurisdiction" :placeholder="selectedOffice ? `${selectedOffice.countryCode} · ${selectedOffice.cityEn}` : ''" /></label>
+        <label><span>{{ t('copy.0252') }}</span><select v-model="form.workingLanguage"><option value="zh-CN">{{ formatLegalCode('zh-CN', locale) }}</option><option value="en-US">{{ formatLegalCode('en-US', locale) }}</option><option value="ar">{{ formatLegalCode('ar', locale) }}</option></select></label>
+        <label><span>{{ t('copy.0250') }}</span><input v-model="form.countryCode" maxlength="2" /></label>
+        <label><span>{{ t('copy.0253') }}</span><input v-model="form.billingCurrency" maxlength="3" /></label>
+        <button class="primary-action full full-field" type="submit" :disabled="saving">{{ saving ? 'Saving…' : (t('copy.0371')) }}</button>
       </form>
     </ElDialog>
   </section>

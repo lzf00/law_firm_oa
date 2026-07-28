@@ -17,7 +17,7 @@ case "${backup_dir}" in
     ;;
 esac
 
-for required_file in database.dump object-storage.tar SHA256SUMS; do
+for required_file in database.dump object-storage.tar BACKUP_EVIDENCE.txt SHA256SUMS; do
   [[ -s "${backup_dir}/${required_file}" ]] || {
     echo "Missing or empty backup artifact: ${required_file}" >&2
     exit 3
@@ -40,18 +40,26 @@ cleanup_restore_db() {
 }
 trap cleanup_restore_db EXIT
 
-(
-  cd "${project_dir}"
-  docker compose exec -T postgres createdb -U law_oa "${restore_db}"
-  docker compose exec -T postgres \
-    pg_restore -U law_oa -d "${restore_db}" --no-owner --no-privileges \
-    < "${backup_dir}/database.dump"
-  docker compose exec -T postgres psql -U law_oa -d "${restore_db}" \
-    -v ON_ERROR_STOP=1 \
-    -c "SELECT COUNT(*) AS flyway_rows FROM flyway_schema_history WHERE success;" \
-    -c "SELECT COUNT(*) AS users FROM users;" \
-    -c "SELECT COUNT(*) AS documents FROM documents;" \
-    -c "SELECT COUNT(*) AS audit_logs FROM audit_logs;"
-)
+docker compose --project-directory "${project_dir}" exec -T postgres \
+  createdb -U law_oa "${restore_db}"
+docker compose --project-directory "${project_dir}" exec -T postgres \
+  pg_restore -U law_oa -d "${restore_db}" --no-owner --no-privileges \
+  < "${backup_dir}/database.dump"
+verification_output="$(docker compose --project-directory "${project_dir}" exec -T postgres \
+  psql -U law_oa -d "${restore_db}" \
+  -v ON_ERROR_STOP=1 \
+  -At \
+  -c "SELECT 'flyway_rows=' || COUNT(*) FROM flyway_schema_history WHERE success;" \
+  -c "SELECT 'users=' || COUNT(*) FROM users;" \
+  -c "SELECT 'documents=' || COUNT(*) FROM documents;" \
+  -c "SELECT 'audit_logs=' || COUNT(*) FROM audit_logs;")"
+
+{
+  echo "verified_at_utc=$(date -u +%Y%m%dT%H%M%SZ)"
+  echo "restore_database=${restore_db}"
+  echo "checksum=passed"
+  echo "object_archive=passed"
+  printf '%s\n' "${verification_output}"
+} > "${backup_dir}/RESTORE_EVIDENCE.txt"
 
 echo "Backup verification and isolated restore succeeded: ${backup_dir}"

@@ -16,6 +16,10 @@ services:
       DB_PASSWORD: ${DB_PASSWORD}
       REDIS_HOST: ${REDIS_HOST}
       REDIS_PORT: ${REDIS_PORT:-6379}
+      REDIS_USERNAME: ${REDIS_USERNAME}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+      REDIS_SSL_ENABLED: ${REDIS_SSL_ENABLED:-true}
+      REDIS_TIMEOUT: ${REDIS_TIMEOUT:-3s}
       STORAGE_ENDPOINT: ${STORAGE_ENDPOINT}
       STORAGE_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_ENDPOINT}
       STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
@@ -31,6 +35,11 @@ services:
       CLAMAV_TIMEOUT: ${CLAMAV_TIMEOUT:-30s}
       DOCUMENT_CLEANUP_INTERVAL: ${DOCUMENT_CLEANUP_INTERVAL:-PT1H}
       DOCUMENT_CLEANUP_BATCH_SIZE: ${DOCUMENT_CLEANUP_BATCH_SIZE:-100}
+      DB_POOL_MAX_SIZE: ${DB_POOL_MAX_SIZE:-20}
+      DB_POOL_MIN_IDLE: ${DB_POOL_MIN_IDLE:-4}
+      DB_POOL_CONNECTION_TIMEOUT_MS: ${DB_POOL_CONNECTION_TIMEOUT_MS:-5000}
+      DB_POOL_VALIDATION_TIMEOUT_MS: ${DB_POOL_VALIDATION_TIMEOUT_MS:-3000}
+      APP_VERSION: ${APP_VERSION}
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep -q UP"]
       interval: 20s
@@ -60,7 +69,7 @@ services:
     security_opt:
       - no-new-privileges:true
     ports:
-      - "127.0.0.1:8080:80"
+      - "127.0.0.1:8080:8080"
     depends_on:
       backend:
         condition: service_healthy

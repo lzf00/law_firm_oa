@@ -57,10 +57,6 @@ const unfiledDocuments = computed(() => {
   return availableDocuments.value.filter((item) => !filed.has(item.id))
 })
 
-function text(zh: string, en: string) {
-  return locale.value === 'en-US' ? en : zh
-}
-
 async function load() {
   try {
     const [archiveResult, matterResult] = await Promise.all([
@@ -71,13 +67,13 @@ async function load() {
     matters.value = matterResult.data
     if (!form.matterId) form.matterId = matters.value[0]?.id ?? ''
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('卷宗加载失败', 'Failed to load archives'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0055'))
   }
 }
 
 async function createArchive() {
   if (!form.archiveNumber.trim() || !form.title.trim() || !form.matterId) {
-    ElMessage.warning(text('请填写卷宗编号、名称并选择案件', 'Enter an archive number, title and matter'))
+    ElMessage.warning(t('copy.0056'))
     return
   }
   saving.value = true
@@ -87,9 +83,9 @@ async function createArchive() {
     dialogVisible.value = false
     form.archiveNumber = ''
     form.title = ''
-    ElMessage.success(text('电子卷宗已建立', 'Archive created'))
+    ElMessage.success(t('copy.0057'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('创建失败', 'Creation failed'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0058'))
   } finally {
     saving.value = false
   }
@@ -105,7 +101,7 @@ async function openArchive(item: ArchiveVolume) {
         params: { matterId: item.matterId },
       })).data
     } catch (error) {
-      ElMessage.error(error instanceof Error ? error.message : text('案件文档加载失败', 'Failed to load matter documents'))
+      ElMessage.error(error instanceof Error ? error.message : t('copy.0059'))
     }
   }
   manageVisible.value = true
@@ -113,7 +109,7 @@ async function openArchive(item: ArchiveVolume) {
 
 async function addItem() {
   if (!selectedArchive.value || !selectedDocumentId.value) {
-    ElMessage.warning(text('请选择要入卷的案件文档', 'Select a matter document'))
+    ElMessage.warning(t('copy.0060'))
     return
   }
   adding.value = true
@@ -126,9 +122,9 @@ async function addItem() {
     const index = archives.value.findIndex((item) => item.id === updated.id)
     if (index >= 0) archives.value[index] = updated
     selectedDocumentId.value = ''
-    ElMessage.success(text('文档已加入卷宗', 'Document added to archive'))
+    ElMessage.success(t('copy.0061'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('入卷失败', 'Failed to add document'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0062'))
   } finally {
     adding.value = false
   }
@@ -143,9 +139,9 @@ onMounted(load)
       <div>
         <span class="eyebrow">ELECTRONIC ARCHIVE</span>
         <h2>{{ t('headline.archives') }}</h2>
-        <p>{{ text('卷宗与案件绑定，卷内文件引用受控版本；保管期限、冻结与调阅都独立留痕。', 'Archives remain matter-bound, version-controlled and independently audited.') }}</p>
+        <p>{{ t('copy.0063') }}</p>
       </div>
-      <button class="primary-action" @click="dialogVisible = true"><Plus :size="17" /> {{ text('新建卷宗', 'New archive') }}</button>
+      <button class="primary-action" @click="dialogVisible = true"><Plus :size="17" /> {{ t('copy.0064') }}</button>
     </div>
 
     <div v-if="archives.length" class="archive-grid">
@@ -161,50 +157,50 @@ onMounted(load)
         <span class="mono">{{ item.archiveNumber }}</span>
         <h3>{{ item.title }}</h3>
         <p>
-          {{ matterById.get(item.matterId || '')?.matterNumber || text('未关联案件', 'Unlinked') }}
+          {{ matterById.get(item.matterId || '')?.matterNumber || t('copy.0065') }}
           · {{ item.retentionPolicyCode }} · {{ item.createdByName }}
         </p>
         <div class="archive-meta">
-          <span>{{ item.itemCount }} {{ text('份文件', 'files') }}</span>
+          <span>{{ item.itemCount }} {{ t('copy.0066') }}</span>
           <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
         </div>
       </article>
     </div>
     <div v-else class="panel empty-state">
       <Archive :size="34" />
-      <strong>{{ text('尚未建立电子卷宗', 'No archives yet') }}</strong>
-      <span>{{ text('案件结项前即可预建目录，归档后转为只读。', 'Prepare the archive before closing a matter; archived volumes become read-only.') }}</span>
+      <strong>{{ t('copy.0067') }}</strong>
+      <span>{{ t('copy.0068') }}</span>
     </div>
 
     <el-dialog
       v-model="dialogVisible"
-      :title="text('新建电子卷宗', 'Create electronic archive')"
+      :title="t('copy.0069')"
       width="min(520px, 92vw)"
     >
       <div class="dialog-form">
         <label>
-          <span>{{ text('关联案件', 'Matter') }}</span>
+          <span>{{ t('copy.0070') }}</span>
           <select v-model="form.matterId" data-testid="archive-matter">
             <option v-for="matter in matters" :key="matter.id" :value="matter.id">
               {{ matter.matterNumber }} · {{ matter.title }}
             </option>
           </select>
         </label>
-        <label><span>{{ text('卷宗编号', 'Archive number') }}</span><input v-model="form.archiveNumber" :placeholder="text('如 AJ-2026-008', 'e.g. AJ-2026-008')" /></label>
-        <label><span>{{ text('卷宗名称', 'Archive title') }}</span><input v-model="form.title" :placeholder="text('案件或专项名称', 'Matter or project title')" /></label>
+        <label><span>{{ t('copy.0071') }}</span><input v-model="form.archiveNumber" :placeholder="t('copy.0072')" /></label>
+        <label><span>{{ t('copy.0073') }}</span><input v-model="form.title" :placeholder="t('copy.0074')" /></label>
         <label>
-          <span>{{ text('保管策略', 'Retention policy') }}</span>
+          <span>{{ t('copy.0075') }}</span>
           <select v-model="form.retentionPolicyCode">
-            <option value="LITIGATION_10Y">{{ text('诉讼卷宗 · 10年', 'Litigation · 10 years') }}</option>
-            <option value="PERMANENT">{{ text('永久保管', 'Permanent') }}</option>
-            <option value="GENERAL_5Y">{{ text('一般业务 · 5年', 'General · 5 years') }}</option>
+            <option value="LITIGATION_10Y">{{ t('copy.0076') }}</option>
+            <option value="PERMANENT">{{ t('copy.0077') }}</option>
+            <option value="GENERAL_5Y">{{ t('copy.0078') }}</option>
           </select>
         </label>
       </div>
       <template #footer>
-        <button class="secondary-action" @click="dialogVisible = false">{{ text('取消', 'Cancel') }}</button>
+        <button class="secondary-action" @click="dialogVisible = false">{{ t('copy.0079') }}</button>
         <button class="primary-action" :disabled="saving" @click="createArchive">
-          {{ saving ? text('正在建立…', 'Creating…') : text('确认建卷', 'Create archive') }}
+          {{ saving ? t('copy.0080') : t('copy.0081') }}
         </button>
       </template>
     </el-dialog>
@@ -216,18 +212,18 @@ onMounted(load)
     >
       <div v-if="selectedArchive" class="archive-manager">
         <div class="archive-manager-meta">
-          <span>{{ matterById.get(selectedArchive.matterId || '')?.title || text('未关联案件', 'Unlinked') }}</span>
+          <span>{{ matterById.get(selectedArchive.matterId || '')?.title || t('copy.0065') }}</span>
           <strong>{{ formatLegalCode(selectedArchive.retentionPolicyCode, locale) }} · {{ formatLegalCode(selectedArchive.status, locale) }}</strong>
         </div>
         <div class="add-document">
           <select v-model="selectedDocumentId" :disabled="selectedArchive.status !== 'OPEN'">
-            <option value="">{{ text('选择待入卷文档', 'Select a document') }}</option>
+            <option value="">{{ t('copy.0082') }}</option>
             <option v-for="document in unfiledDocuments" :key="document.id" :value="document.id">
               {{ document.logicalName }} · {{ formatLegalCode(document.documentType, locale) }}
             </option>
           </select>
           <button class="primary-action" :disabled="adding || !selectedDocumentId" @click="addItem">
-            <FilePlus2 :size="16" /> {{ text('加入卷宗', 'Add') }}
+            <FilePlus2 :size="16" /> {{ t('copy.0083') }}
           </button>
         </div>
         <ol v-if="selectedArchive.items.length" class="archive-item-list">
@@ -238,7 +234,7 @@ onMounted(load)
         </ol>
         <div v-else class="empty-state compact-empty">
           <FolderArchive :size="28" />
-          <span>{{ text('卷内暂无文档', 'No documents in this archive') }}</span>
+          <span>{{ t('copy.0084') }}</span>
         </div>
       </div>
     </el-dialog>

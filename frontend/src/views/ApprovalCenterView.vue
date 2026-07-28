@@ -59,14 +59,10 @@ const { locale } = useI18n()
 const isEnglish = computed(() => locale.value === 'en-US')
 
 const actionTitle = computed(() => {
-  if (action.value === 'APPROVE') return text('通过审批', 'Approve task')
-  if (action.value === 'REJECT') return text('驳回审批', 'Reject task')
-  return text('转交审批', 'Transfer task')
+  if (action.value === 'APPROVE') return t('copy.0021')
+  if (action.value === 'REJECT') return t('copy.0022')
+  return t('copy.0023')
 })
-
-function text(zh: string, en: string) {
-  return isEnglish.value ? en : zh
-}
 
 async function load() {
   loading.value = true
@@ -78,7 +74,7 @@ async function load() {
     tasks.value = taskResponse.data
     sealRequests.value = sealResponse.data
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('审批数据加载失败', 'Failed to load approvals'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0024'))
   } finally {
     loading.value = false
   }
@@ -96,7 +92,7 @@ async function openAction(task: WorkflowTask, nextAction: ApprovalAction) {
         `/workflows/tasks/${task.id}/transfer-targets`,
       )).data
     } catch (error) {
-      ElMessage.error(error instanceof Error ? error.message : text('无法加载可转交人员', 'Could not load eligible users'))
+      ElMessage.error(error instanceof Error ? error.message : t('copy.0025'))
       return
     }
   }
@@ -107,11 +103,11 @@ async function submitAction() {
   const task = selectedTask.value
   if (!task) return
   if (action.value === 'REJECT' && !comment.value.trim()) {
-    ElMessage.warning(text('驳回必须填写原因', 'A rejection reason is required'))
+    ElMessage.warning(t('copy.0026'))
     return
   }
   if (action.value === 'TRANSFER' && !targetUserId.value) {
-    ElMessage.warning(text('请选择有权处理该业务的转交人员', 'Select an eligible recipient'))
+    ElMessage.warning(t('copy.0027'))
     return
   }
   processing.value = task.id
@@ -132,14 +128,14 @@ async function submitAction() {
     actionVisible.value = false
     ElMessage.success(
       action.value === 'APPROVE'
-        ? text('审批已通过', 'Task approved')
+        ? t('copy.0028')
         : action.value === 'REJECT'
-          ? text('审批已驳回', 'Task rejected')
-          : text('审批已转交', 'Task transferred'),
+          ? t('copy.0029')
+          : t('copy.0030'),
     )
     await load()
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('审批操作失败', 'Approval action failed'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0031'))
   } finally {
     processing.value = ''
   }
@@ -149,9 +145,9 @@ async function remind(task: WorkflowTask) {
   reminding.value = task.id
   try {
     await http.post(`/workflows/tasks/${task.id}/remind`)
-    ElMessage.success(text('催办通知已发送，30 分钟内不会重复发送', 'Reminder sent; another can be sent after 30 minutes'))
+    ElMessage.success(t('copy.0032'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('催办失败', 'Reminder failed'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0033'))
   } finally {
     reminding.value = ''
   }
@@ -166,18 +162,18 @@ onMounted(load)
       <div>
         <span class="eyebrow">APPROVAL DESK</span>
         <h2>{{ t('headline.approvals') }}</h2>
-        <p>{{ text('通过、驳回、转交和催办均经过资格校验，并写入不可抵赖的审批审计链。', 'Approve, reject, transfer and remind actions are eligibility-checked and fully audited.') }}</p>
+        <p>{{ t('copy.0034') }}</p>
       </div>
-      <button class="primary-action" :disabled="loading" @click="load"><FileCheck2 :size="17" /> {{ text('刷新待办', 'Refresh') }}</button>
+      <button class="primary-action" :disabled="loading" @click="load"><FileCheck2 :size="17" /> {{ t('copy.0035') }}</button>
     </div>
 
     <div class="approval-grid">
       <div class="panel">
         <div class="panel-heading">
-          <div><span class="eyebrow">MY TASKS</span><h3>{{ text('我的审批待办', 'My approval tasks') }}</h3></div>
-          <span class="status-pill">{{ tasks.length }} {{ text('项', 'items') }}</span>
+          <div><span class="eyebrow">MY TASKS</span><h3>{{ t('copy.0036') }}</h3></div>
+          <span class="status-pill">{{ tasks.length }} {{ t('copy.0037') }}</span>
         </div>
-        <div v-if="loading" class="empty-state">{{ text('正在同步流程引擎…', 'Syncing workflow engine…') }}</div>
+        <div v-if="loading" class="empty-state">{{ t('copy.0038') }}</div>
         <div v-else-if="tasks.length" class="approval-list">
           <article v-for="task in tasks" :key="task.id" class="approval-row task-row">
             <div class="approval-icon"><FileCheck2 :size="19" /></div>
@@ -187,36 +183,36 @@ onMounted(load)
               <small>{{ new Date(task.createdAt).toLocaleString(locale) }} · {{ task.assignee || task.candidateGroup }}</small>
             </div>
             <div class="approval-actions">
-              <button class="table-action" :aria-label="text('通过', 'Approve')" @click="openAction(task, 'APPROVE')"><CheckCircle2 :size="15" /></button>
-              <button class="table-action reject" :aria-label="text('驳回', 'Reject')" @click="openAction(task, 'REJECT')"><XCircle :size="15" /></button>
-              <button class="table-action" :aria-label="text('转交', 'Transfer')" @click="openAction(task, 'TRANSFER')"><Send :size="15" /></button>
-              <button class="table-action" :aria-label="text('催办', 'Remind')" :disabled="reminding === task.id" @click="remind(task)"><BellRing :size="15" /></button>
+              <button class="table-action" :aria-label="t('copy.0039')" @click="openAction(task, 'APPROVE')"><CheckCircle2 :size="15" /></button>
+              <button class="table-action reject" :aria-label="t('copy.0040')" @click="openAction(task, 'REJECT')"><XCircle :size="15" /></button>
+              <button class="table-action" :aria-label="t('copy.0041')" @click="openAction(task, 'TRANSFER')"><Send :size="15" /></button>
+              <button class="table-action" :aria-label="t('copy.0042')" :disabled="reminding === task.id" @click="remind(task)"><BellRing :size="15" /></button>
             </div>
           </article>
         </div>
         <div v-else class="empty-state">
           <CheckCircle2 :size="34" />
-          <strong>{{ text('待办已清空', 'No pending tasks') }}</strong>
-          <span>{{ text('你有权限处理的任务会出现在这里。', 'Tasks you are eligible to handle will appear here.') }}</span>
+          <strong>{{ t('copy.0043') }}</strong>
+          <span>{{ t('copy.0044') }}</span>
         </div>
       </div>
 
       <div class="panel">
         <div class="panel-heading">
-          <div><span class="eyebrow">SEAL REQUESTS</span><h3>{{ text('用印申请台账', 'Seal request register') }}</h3></div>
+          <div><span class="eyebrow">SEAL REQUESTS</span><h3>{{ t('copy.0045') }}</h3></div>
           <Stamp :size="21" />
         </div>
         <div v-if="sealRequests.length" class="approval-list">
           <article v-for="item in sealRequests" :key="item.id" class="approval-row compact-row">
             <div>
               <strong>{{ item.purpose }}</strong>
-              <span>{{ item.sealName }} · {{ item.copies }} {{ text('份', 'copies') }} · {{ item.requestedByName }}</span>
+              <span>{{ item.sealName }} · {{ item.copies }} {{ t('copy.0046') }} · {{ item.requestedByName }}</span>
               <small>{{ new Date(item.createdAt).toLocaleString(locale) }}</small>
             </div>
             <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
           </article>
         </div>
-        <div v-else class="empty-state">{{ text('暂无用印申请', 'No seal requests') }}</div>
+        <div v-else class="empty-state">{{ t('copy.0047') }}</div>
       </div>
     </div>
 
@@ -227,25 +223,25 @@ onMounted(load)
           <span>{{ selectedTask.businessType }} · {{ selectedTask.businessKey }}</span>
         </div>
         <label v-if="action === 'TRANSFER'">
-          <span>{{ text('可转交人员', 'Eligible recipient') }}</span>
+          <span>{{ t('copy.0048') }}</span>
           <select v-model="targetUserId" data-testid="transfer-target">
-            <option value="">{{ text('请选择', 'Select') }}</option>
+            <option value="">{{ t('copy.0049') }}</option>
             <option v-for="target in transferTargets" :key="target.userId" :value="target.userId">
               {{ target.displayName }} · {{ target.username }}
             </option>
           </select>
-          <small v-if="!transferTargets.length">{{ text('没有其他符合业务权限范围的人员', 'No other eligible users') }}</small>
+          <small v-if="!transferTargets.length">{{ t('copy.0050') }}</small>
         </label>
         <label>
           <span>
             {{ action === 'REJECT'
-              ? text('驳回原因（必填）', 'Rejection reason (required)')
-              : text('处理意见', 'Comment') }}
+              ? t('copy.0051')
+              : t('copy.0052') }}
           </span>
-          <textarea v-model="comment" rows="4" maxlength="500" :placeholder="text('最多 500 字', 'Up to 500 characters')" />
+          <textarea v-model="comment" rows="4" maxlength="500" :placeholder="t('copy.0053')" />
         </label>
         <button class="primary-action full" :disabled="processing === selectedTask.id" @click="submitAction">
-          {{ processing === selectedTask.id ? text('处理中…', 'Processing…') : actionTitle }}
+          {{ processing === selectedTask.id ? t('copy.0054') : actionTitle }}
         </button>
       </div>
     </ElDialog>

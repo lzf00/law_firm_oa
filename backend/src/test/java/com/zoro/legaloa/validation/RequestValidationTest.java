@@ -4,7 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.zoro.legaloa.archive.ArchiveController.AddArchiveItemRequest;
 import com.zoro.legaloa.archive.ArchiveController.CreateArchiveVolumeRequest;
+import com.zoro.legaloa.admin.AdminController.ImportRequest;
+import com.zoro.legaloa.admin.AdminController.UserAccessRequest;
 import com.zoro.legaloa.document.DocumentController.InitiateUploadRequest;
+import com.zoro.legaloa.document.DocumentGovernanceController.RetentionRuleRequest;
+import com.zoro.legaloa.finance.FinanceController.EngagementRequest;
+import com.zoro.legaloa.finance.FinanceController.TimeEntryRequest;
 import com.zoro.legaloa.identity.OrganizationSyncController.DepartmentSnapshot;
 import com.zoro.legaloa.identity.OrganizationSyncController.OrganizationSyncRequest;
 import com.zoro.legaloa.matter.ContractController.CreateContractRequest;
@@ -198,6 +203,32 @@ class RequestValidationTest {
                 "MANUAL", "SNAPSHOT", false,
                 List.of(new DepartmentSnapshot(" ", null, "Team", 1)), List.of()
         ), "departments[0].externalDepartmentId");
+    }
+
+    @Test
+    void validatesP1DocumentAndFinanceCommands() {
+        assertInvalid(new RetentionRuleRequest(
+                null, "DOCUMENT", null, 0, "REVIEW"
+        ), "retentionYears");
+        assertInvalid(new TimeEntryRequest(
+                ID, LocalDate.now(), 0, "Work", true
+        ), "minutes");
+        assertInvalid(new EngagementRequest(
+                ID, ID, null, "Engagement", "HOURLY",
+                BigDecimal.ONE, null, LocalDate.now(), null, new BigDecimal("-1")
+        ), "taxRate");
+    }
+
+    @Test
+    void validatesP1AdministrativeCommandsAndCopiesCollections() {
+        UserAccessRequest access = new UserAccessRequest("ACTIVE", null, null);
+        assertInvalid(access, "roleCodes");
+        assertThat(access.roleCodes()).isEmpty();
+        assertThat(access.offices()).isEmpty();
+
+        assertInvalid(new ImportRequest(
+                "USERS", "users.csv", List.of()
+        ), "rows");
     }
 
     private static <T> void assertValid(T value) {

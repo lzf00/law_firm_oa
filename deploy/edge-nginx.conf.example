@@ -1,0 +1,39 @@
+limit_req_zone $binary_remote_addr zone=oa_edge:20m rate=30r/s;
+limit_conn_zone $binary_remote_addr zone=oa_edge_connections:10m;
+
+server {
+    listen 80;
+    server_name oa.example.com;
+    return 308 https://$host$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name oa.example.com;
+    server_tokens off;
+
+    ssl_certificate /etc/nginx/tls/fullchain.pem;
+    ssl_certificate_key /etc/nginx/tls/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_session_cache shared:TLS:20m;
+    ssl_session_timeout 1d;
+    ssl_session_tickets off;
+
+    limit_req_status 429;
+    limit_conn_status 429;
+    limit_req zone=oa_edge burst=90 nodelay;
+    limit_conn oa_edge_connections 40;
+    client_max_body_size 210m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 90s;
+        proxy_send_timeout 90s;
+    }
+}

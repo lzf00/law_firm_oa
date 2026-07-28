@@ -36,49 +36,49 @@ async function create() {
     })
     dialog.value = false
     await load()
-    ElMessage.success(text('会议室预约成功', 'Meeting room booked'))
-  } catch (error) { ElMessage.error(error instanceof Error ? error.message : text('预约失败', 'Booking failed')) }
+    ElMessage.success(t('copy.0267'))
+  } catch (error) { ElMessage.error(error instanceof Error ? error.message : t('copy.0268')) }
 }
 async function cancel(item: Booking) {
   await http.post(`/meetings/bookings/${item.id}/cancel`)
   await load()
-  ElMessage.success(text('预约已取消，时段重新开放', 'Booking cancelled and the time slot released'))
+  ElMessage.success(t('copy.0269'))
 }
-onMounted(() => load().catch(() => ElMessage.error(text('会议室数据加载失败', 'Failed to load meeting rooms'))))
+onMounted(() => load().catch(() => ElMessage.error(t('copy.0270'))))
 </script>
 
 <template>
   <section class="module-page">
     <div class="page-intro">
-      <div><span class="eyebrow">MEETING ROOMS</span><h2>{{ t('headline.meetings') }}</h2><p>{{ text('容量、设施、地点和未来预约统一展示；数据库排他约束保证同一房间同一时段只能有一场会议。', 'Capacity, facilities, location and future bookings are shown together; a database exclusion constraint prevents overlapping bookings.') }}</p></div>
-      <button class="primary-action" @click="dialog = true"><CalendarPlus :size="17" /> {{ text('预约会议室', 'Book a room') }}</button>
+      <div><span class="eyebrow">MEETING ROOMS</span><h2>{{ t('headline.meetings') }}</h2><p>{{ t('copy.0271') }}</p></div>
+      <button class="primary-action" @click="dialog = true"><CalendarPlus :size="17" /> {{ t('copy.0272') }}</button>
     </div>
     <div class="room-strip">
       <article v-for="room in rooms" :key="room.id" class="room-card">
         <Building2 :size="23" /><div><strong>{{ room.name }}</strong><span>{{ locale === 'en-US' ? room.officeNameEn : room.officeNameZh }} · {{ room.location }} · {{ room.facilities }}</span></div>
-        <span><Users :size="14" /> {{ room.capacity }} {{ text('人', 'people') }}</span>
+        <span><Users :size="14" /> {{ room.capacity }} {{ t('copy.0273') }}</span>
       </article>
     </div>
     <div class="panel meeting-list">
-      <div class="panel-heading"><div><span class="eyebrow">UPCOMING</span><h3>{{ text('未来预约', 'Upcoming bookings') }}</h3></div><span class="status-pill">{{ bookings.filter((item) => item.status === 'CONFIRMED').length }} {{ text('场', 'bookings') }}</span></div>
+      <div class="panel-heading"><div><span class="eyebrow">UPCOMING</span><h3>{{ t('copy.0274') }}</h3></div><span class="status-pill">{{ bookings.filter((item) => item.status === 'CONFIRMED').length }} {{ t('copy.0275') }}</span></div>
       <article v-for="item in bookings" :key="item.id" class="meeting-row">
         <time><strong>{{ new Date(item.startAt).toLocaleDateString('zh-CN', { month: '2-digit', day: '2-digit' }) }}</strong><span>{{ new Date(item.startAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) }}</span></time>
         <div><strong>{{ item.title }}</strong><span>{{ locale === 'en-US' ? item.officeNameEn : item.officeNameZh }} · {{ item.roomName }} · {{ item.roomLocation }} · {{ item.organizerName }}</span></div>
         <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
-        <button v-if="item.status === 'CONFIRMED'" class="secondary-action compact-action" @click="cancel(item)">{{ text('取消', 'Cancel') }}</button>
+        <button v-if="item.status === 'CONFIRMED'" class="secondary-action compact-action" @click="cancel(item)">{{ t('copy.0079') }}</button>
       </article>
-      <div v-if="!bookings.length" class="empty-state">{{ text('未来 90 天暂无预约', 'No bookings in the next 90 days') }}</div>
+      <div v-if="!bookings.length" class="empty-state">{{ t('copy.0276') }}</div>
     </div>
-    <el-dialog v-model="dialog" :title="text('预约会议室', 'Book meeting room')" width="540px">
+    <el-dialog v-model="dialog" :title="t('copy.0277')" width="540px">
       <div class="dialog-form two-column-form">
-        <label class="full-field"><span>{{ text('会议主题', 'Meeting title') }}</span><input v-model="form.title" :placeholder="text('会议名称', 'Meeting name')" /></label>
-        <label class="full-field"><span>{{ text('会议室', 'Room') }}</span><select v-model="form.roomId"><option v-for="room in rooms" :key="room.id" :value="room.id">{{ room.name }} ({{ room.capacity }} {{ text('人', 'people') }})</option></select></label>
-        <label><span>{{ text('开始时间', 'Start') }}</span><input v-model="form.startAt" type="datetime-local" /></label>
-        <label><span>{{ text('结束时间', 'End') }}</span><input v-model="form.endAt" type="datetime-local" /></label>
-        <label><span>{{ text('参会人数', 'Attendees') }}</span><input v-model.number="form.attendeeCount" type="number" min="1" /></label>
-        <label><span>{{ text('备注', 'Notes') }}</span><input v-model="form.notes" :placeholder="text('选填', 'Optional')" /></label>
+        <label class="full-field"><span>{{ t('copy.0278') }}</span><input v-model="form.title" :placeholder="t('copy.0279')" /></label>
+        <label class="full-field"><span>{{ t('copy.0280') }}</span><select v-model="form.roomId"><option v-for="room in rooms" :key="room.id" :value="room.id">{{ room.name }} ({{ room.capacity }} {{ t('copy.0273') }})</option></select></label>
+        <label><span>{{ t('copy.0196') }}</span><input v-model="form.startAt" type="datetime-local" /></label>
+        <label><span>{{ t('copy.0197') }}</span><input v-model="form.endAt" type="datetime-local" /></label>
+        <label><span>{{ t('copy.0281') }}</span><input v-model.number="form.attendeeCount" type="number" min="1" /></label>
+        <label><span>{{ t('copy.0282') }}</span><input v-model="form.notes" :placeholder="t('copy.0201')" /></label>
       </div>
-      <template #footer><button class="primary-action" @click="create">{{ text('确认预约', 'Confirm booking') }}</button></template>
+      <template #footer><button class="primary-action" @click="create">{{ t('copy.0283') }}</button></template>
     </el-dialog>
   </section>
 </template>

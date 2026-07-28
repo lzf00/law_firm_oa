@@ -12,6 +12,8 @@
 案件成员和被明确指派的协作者仍可跨办公室访问相关业务。
 第五阶段补齐分所成员管理、临时授权有效期、授权变更审计，以及文档下载突发预警、
 硬限流和安全事件查询；同时提供本地数据库与 MinIO 备份、校验和隔离恢复演练脚本。
+当前 `0.3.0-rc.1` 商业候选版本进一步加入文档治理、法律保全、全文检索、模板与条款
+库，以及委托收费、工时、账单、回款、经营报表和统一管理控制台。
 
 ## 技术栈
 
@@ -48,9 +50,9 @@ law_firm_oa/
 │       └── resources/       配置、BPMN、Flyway 数据库迁移
 ├── frontend/                Vue 3 / TypeScript 前端
 │   └── src/views/           登录页及各业务页面
-├── docs/                    API 与生产运维文档
-├── scripts/                 API 冒烟验证
-├── tests/                   Playwright 浏览器测试
+├── docs/                    研发、规划、API、运维、合规与商业文档
+├── scripts/                 冒烟、负载、发布、备份恢复和 SBOM 脚本
+├── frontend/tests/          Playwright 浏览器测试
 └── docker-compose.yml       本地一键运行环境
 ```
 
@@ -60,11 +62,15 @@ law_firm_oa/
 
 ```bash
 node scripts/smoke-test.mjs
-python3 tests/e2e_browser.py
+cd frontend
+npm test
+npm run test:e2e
+cd ..
+node scripts/load-test.mjs
 ```
 
-当前验收基线为 82 个后端单元/边界测试、10 个前端单元测试、43 项 API
-功能验证和一套桌面/移动端
+当前验收基线为 95 个后端单元/边界测试、12 个前端单元测试、46 项 API
+功能验证和 19 个主要路由的中文桌面、英文桌面、中文移动端
 Playwright 端到端验收。API 验证覆盖公开双语租户配置、匿名访问拦截、全球办公室与
 跨境案件字段、成员范围隔离、对象存储直传、文件 SHA-256 校验、下载内容一致性、
 助理下载越权拦截、案件工作台聚合与生命周期、案件绑定电子卷宗编目、审批幂等/重复
@@ -72,7 +78,8 @@ Playwright 端到端验收。API 验证覆盖公开双语租户配置、匿名�
 待办、通知、审计权限、组织快照同步，以及公告已读、任务协作、请假时间冲突、报销
 金额汇总与付款、会议室容量和并发时段冲突，并验证办公室通讯录/会议室/公告隔离与
 案件成员跨办公室协作，并新增临时授权、授权撤销、授权级别越权、下载突发预警、
-30 次/5 分钟硬限流和安全事件访问权限验证。完整覆盖矩阵和已知缺口见
+30 次/5 分钟硬限流、安全事件、文档治理、法律保全、异步导出、委托收费、工时、
+账单、回款和管理控制台验证。完整覆盖矩阵和已知缺口见
 [`docs/TEST_MATRIX.md`](docs/TEST_MATRIX.md)。
 
 ## 企业级后端能力
@@ -98,6 +105,16 @@ Playwright 端到端验收。API 验证覆盖公开双语租户配置、匿名�
 - 跨办公室协作：案件成员、任务负责人/参与人、审批受让人采用显式授权，不因办公室隔离失效。
 - 跨境案件：记录承办办公室、国家、司法辖区、中文/英文/阿拉伯语工作语言和结算币种。
 - 双语门户：登录页、全局导航、业务页标题和全球办公室可即时切换中英文并持久化偏好。
+- 文案治理：400+ 组客户可见文案进入集中中英文目录，自动测试禁止业务页面重新出现
+  内联中文、临时翻译函数和直接状态输出。
+- 发布供应链：镜像携带 CycloneDX SBOM，GitHub CI 执行测试、构建、依赖审查、
+  生产依赖审计和镜像高危漏洞扫描。
+- 法律财务：委托收费约定、费率快照、工时审批、不可变签发账单、回款分配、应收账龄
+  和办公室经营报表。
+- 文档治理：安全预览元数据、OCR/全文索引、授权检索、模板/条款版本、保管规则、
+  法律保全和带摘要异步导出。
+- 管理控制台：用户角色、权限与办公室授权、组织同步预演、流程分配规则、集成健康和
+  逐行数据导入错误。
 
 接口约定和新增端点见 [`docs/BACKEND_API.md`](docs/BACKEND_API.md)。
 
@@ -120,5 +137,7 @@ scripts/verify-backup.sh /absolute/path/to/law_firm_oa/backups/<timestamp>
 [`docs/PRODUCTION_OPERATIONS.md`](docs/PRODUCTION_OPERATIONS.md)。
 版本与发布变化见 [`CHANGELOG.md`](CHANGELOG.md)，每次上线前应复制并完成
 [`docs/RELEASE_CHECKLIST.md`](docs/RELEASE_CHECKLIST.md)。
-本阶段完整开发与验收结论见
-[`docs/DEVELOPMENT_REPORT_2026-07-28_STAGE5.md`](docs/DEVELOPMENT_REPORT_2026-07-28_STAGE5.md)。
+最新开发与验收结论见
+[`docs/DEVELOPMENT_REPORT_LATEST.md`](docs/DEVELOPMENT_REPORT_LATEST.md)；
+面向合伙人的路线图见
+[`docs/PARTNER_3_STAGE_PLAN.md`](docs/PARTNER_3_STAGE_PLAN.md)。

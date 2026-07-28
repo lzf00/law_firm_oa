@@ -51,10 +51,10 @@ onMounted(async () => {
 })
 
 const stats = computed(() => [
-  { label: text('在办案件', 'Active matters'), value: activeMatters.value, trend: text('按成员权限统计', 'Based on your access'), icon: Scale },
-  { label: text('七日内期限', 'Due in 7 days'), value: weekDeadlineCount.value, trend: text('请优先处理法定期限', 'Prioritize statutory deadlines'), icon: CalendarDays, danger: weekDeadlineCount.value > 0 },
-  { label: text('待我审批', 'My approvals'), value: workflowTasks.value.length, trend: text('来自流程引擎', 'From workflow engine'), icon: FileSignature },
-  { label: text('风险提示', 'Risk alerts'), value: conflictReviewCount.value, trend: text('待完成冲突复核', 'Conflict review required'), icon: CircleAlert, danger: conflictReviewCount.value > 0 },
+  { label: t('copy.0103'), value: activeMatters.value, trend: t('copy.0104'), icon: Scale },
+  { label: t('copy.0105'), value: weekDeadlineCount.value, trend: t('copy.0106'), icon: CalendarDays, danger: weekDeadlineCount.value > 0 },
+  { label: t('copy.0107'), value: workflowTasks.value.length, trend: t('copy.0108'), icon: FileSignature },
+  { label: t('copy.0109'), value: conflictReviewCount.value, trend: t('copy.0110'), icon: CircleAlert, danger: conflictReviewCount.value > 0 },
 ])
 
 function shortDate(value: string) {
@@ -69,14 +69,14 @@ function shortDate(value: string) {
       <div>
         <span class="eyebrow">MONDAY · JUL 27</span>
         <h2>{{ t('headline.dashboard') }}</h2>
-        <p>{{ text('期限、审批与风险信号已汇总。系统只展示你有权查看的案件内容。', 'Deadlines, approvals and risk signals are consolidated. Only authorized matter content is shown.') }}</p>
+        <p>{{ t('copy.0111') }}</p>
       </div>
       <RouterLink to="/matters" class="primary-action">
-        {{ text('查看全部案件', 'View all matters') }} <ArrowRight :size="17" />
+        {{ t('copy.0112') }} <ArrowRight :size="17" />
       </RouterLink>
     </section>
 
-    <section class="stat-grid" :aria-label="text('工作概览', 'Work overview')">
+    <section class="stat-grid" :aria-label="t('copy.0113')">
       <article v-for="stat in stats" :key="stat.label" class="stat-card">
         <div class="stat-icon" :class="{ danger: stat.danger }"><component :is="stat.icon" :size="20" /></div>
         <span>{{ stat.label }}</span>
@@ -90,12 +90,12 @@ function shortDate(value: string) {
         <div class="panel-heading">
           <div>
             <span class="eyebrow">ACTIVE MATTERS</span>
-            <h3>{{ text('最近案件', 'Recent matters') }}</h3>
+            <h3>{{ t('copy.0114') }}</h3>
           </div>
-          <RouterLink to="/matters">{{ text('查看全部', 'View all') }}</RouterLink>
+          <RouterLink to="/matters">{{ t('copy.0115') }}</RouterLink>
         </div>
-        <div v-if="loading" class="empty-state">{{ text('正在加载案件…', 'Loading matters…') }}</div>
-        <div v-else-if="matters.length === 0" class="empty-state">{{ text('尚未创建案件', 'No matters yet') }}</div>
+        <div v-if="loading" class="empty-state">{{ t('copy.0116') }}</div>
+        <div v-else-if="matters.length === 0" class="empty-state">{{ t('copy.0117') }}</div>
         <RouterLink
           v-for="matter in matters.slice(0, 5)"
           v-else
@@ -117,7 +117,7 @@ function shortDate(value: string) {
         <div class="panel-heading">
           <div>
             <span class="eyebrow">UPCOMING</span>
-            <h3>{{ text('近期节点', 'Upcoming deadlines') }}</h3>
+            <h3>{{ t('copy.0118') }}</h3>
           </div>
         </div>
         <ol v-if="deadlines.length" class="timeline">
@@ -129,7 +129,7 @@ function shortDate(value: string) {
             </span>
           </li>
         </ol>
-        <div v-else class="empty-state">{{ text('暂无近期节点', 'No upcoming deadlines') }}</div>
+        <div v-else class="empty-state">{{ t('copy.0119') }}</div>
       </article>
     </section>
   </div>

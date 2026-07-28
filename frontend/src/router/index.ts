@@ -20,6 +20,9 @@ const ExpenseView = () => import('@/views/ExpenseView.vue')
 const MeetingView = () => import('@/views/MeetingView.vue')
 const DirectoryView = () => import('@/views/DirectoryView.vue')
 const OfficesView = () => import('@/views/OfficesView.vue')
+const DocumentGovernanceView = () => import('@/views/DocumentGovernanceView.vue')
+const FinanceWorkbenchView = () => import('@/views/FinanceWorkbenchView.vue')
+const AdminConsoleView = () => import('@/views/AdminConsoleView.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -83,6 +86,24 @@ const router = createRouter({
     { path: '/meetings', name: 'meetings', component: MeetingView, meta: { titleKey: 'page.meetings' } },
     { path: '/directory', name: 'directory', component: DirectoryView, meta: { titleKey: 'page.directory' } },
     { path: '/offices', name: 'offices', component: OfficesView, meta: { titleKey: 'page.offices' } },
+    {
+      path: '/document-governance',
+      name: 'document-governance',
+      component: DocumentGovernanceView,
+      meta: { titleKey: 'page.documentGovernance' },
+    },
+    {
+      path: '/finance',
+      name: 'finance',
+      component: FinanceWorkbenchView,
+      meta: { titleKey: 'page.finance' },
+    },
+    {
+      path: '/admin',
+      name: 'admin',
+      component: AdminConsoleView,
+      meta: { titleKey: 'page.admin' },
+    },
   ],
 })
 

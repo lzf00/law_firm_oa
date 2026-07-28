@@ -7,6 +7,7 @@ import io.minio.MakeBucketArgs;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
 import io.minio.RemoveObjectArgs;
+import io.minio.PutObjectArgs;
 import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
 import io.minio.http.Method;
@@ -129,6 +130,31 @@ public class ObjectStorageService {
             );
         } catch (Exception exception) {
             throw storageUnavailable(exception);
+        }
+    }
+
+    public void put(String objectKey, byte[] content, String contentType) {
+        try (var input = new java.io.ByteArrayInputStream(content)) {
+            internalClient.putObject(
+                    PutObjectArgs.builder()
+                            .bucket(bucket)
+                            .object(objectKey)
+                            .stream(input, content.length, -1)
+                            .contentType(contentType)
+                            .build()
+            );
+        } catch (Exception exception) {
+            throw storageUnavailable(exception);
+        }
+    }
+
+    public boolean isHealthy() {
+        try {
+            return internalClient.bucketExists(
+                    BucketExistsArgs.builder().bucket(bucket).build()
+            );
+        } catch (Exception exception) {
+            return false;
         }
     }
 

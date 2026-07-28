@@ -6,10 +6,11 @@
   --paper: #f2efe7;
   --paper-light: #faf8f2;
   --line: #d8d3c7;
-  --brass: #a47d3b;
+  --brass: #75551f;
+  --brass-on-dark: #d6b96f;
   --oxblood: #893f36;
   --white: #fff;
-  --muted: #727b76;
+  --muted: #5d6762;
   font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
   color: var(--ink);
   background: var(--paper);
@@ -94,6 +95,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible {
 
 .eyebrow { display: block; margin-bottom: 10px; color: var(--brass); font: 700 10px/1.2 Georgia, serif; letter-spacing: .18em; }
 .hero-panel { position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: end; padding: 38px 40px; min-height: 194px; background: var(--forest); color: white; }
+.hero-panel .eyebrow { color: var(--brass-on-dark); }
 .hero-panel::after { content: "§"; position: absolute; right: 25%; top: -48px; font: 700 230px/1 Georgia, serif; color: rgba(255,255,255,.035); }
 .hero-panel h2, .page-intro h2 { margin: 0; font: 700 30px/1.35 "Songti SC", "Noto Serif CJK SC", serif; letter-spacing: .02em; }
 .hero-panel p, .page-intro p { max-width: 650px; margin: 12px 0 0; color: #becbc5; font-size: 14px; line-height: 1.8; }
@@ -159,7 +161,7 @@ td small { margin-top: 4px; color: var(--muted); font-size: 9px; }
 .risk-dot { padding: 4px 6px; color: var(--forest-2); border: 1px solid #b9c9c1; font-size: 8px; }
 .conflict-layout { display: grid; grid-template-columns: minmax(320px, .8fr) minmax(360px, 1.2fr); gap: 18px; }
 .conflict-form { position: relative; padding: 30px; }
-.form-number { position: absolute; top: 18px; right: 23px; color: #d8d2c5; font: 600 48px Georgia, serif; }
+.form-number { position: absolute; top: 18px; right: 23px; color: #928b80; font: 600 48px Georgia, serif; }
 .conflict-form label { display: block; margin-bottom: 23px; }
 .conflict-form label > span { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 650; }
 .conflict-form input, .conflict-form select { width: 100%; border: 1px solid var(--line); background: white; color: var(--ink); outline: 0; }

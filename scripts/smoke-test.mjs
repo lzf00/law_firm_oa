@@ -1276,4 +1276,210 @@ await check('文档下载突发告警、硬限流与安全事件权限', async (
   )
 })
 
+await check('P1 文档治理、索引、保全与异步导出', async () => {
+  const retention = await api('/document-governance/retention-rules', {
+    method: 'POST',
+    body: JSON.stringify({
+      resourceType: 'DOCUMENT',
+      documentType: 'CASE_FILE',
+      retentionYears: 10,
+      dispositionAction: 'REVIEW',
+    }),
+  })
+  assert(retention.retentionYears === 10, '文档保留规则未保存')
+
+  const template = await api('/document-governance/templates', {
+    method: 'POST',
+    body: JSON.stringify({
+      code: `ENGAGEMENT-${nonce}`,
+      nameZh: `委托协议模板-${nonce}`,
+      nameEn: `Engagement template ${nonce}`,
+      category: 'ENGAGEMENT',
+      title: `Engagement ${nonce}`,
+      bodyMarkdown: '# Engagement\\n{{client_name}}',
+      changeNote: 'P1 smoke test',
+    }),
+  })
+  assert(template.versionNumber === 1, '模板首版本未生成')
+
+  const clause = await api('/document-governance/clauses', {
+    method: 'POST',
+    body: JSON.stringify({
+      code: `CONFIDENTIALITY-${nonce}`,
+      titleZh: `保密条款-${nonce}`,
+      titleEn: `Confidentiality clause ${nonce}`,
+      category: 'CONFIDENTIALITY',
+      riskLevel: 'STANDARD',
+      bodyZh: '双方应保护依法获知的保密信息。',
+      bodyEn: 'Each party shall protect confidential information.',
+      changeNote: 'P1 smoke test',
+    }),
+  })
+  assert(clause.versionNumber === 1, '条款首版本未生成')
+
+  const indexed = await api(
+    `/document-governance/documents/${createdDocument.id}/versions/${createdDocument.currentVersionId}/index`,
+    { method: 'POST' },
+  )
+  assert(indexed.status === 'INDEXED', '安全 OCR 索引未完成')
+  const search = await api(
+    `/document-governance/search?query=${encodeURIComponent(createdDocument.logicalName)}&page=1&size=30`,
+  )
+  assert(search.items.some((item) => item.documentId === createdDocument.id), '授权全文检索未命中文档')
+
+  const hold = await api('/document-governance/legal-holds', {
+    method: 'POST',
+    body: JSON.stringify({
+      name: `Evidence hold ${nonce}`,
+      reason: 'P1 deletion guard acceptance',
+      resources: [{ resourceType: 'DOCUMENT', resourceId: createdDocument.id }],
+    }),
+  })
+  const deletion = await api(`/document-governance/documents/${createdDocument.id}`, {
+    method: 'DELETE',
+    body: JSON.stringify({ reason: 'Verify active legal hold blocks deletion' }),
+  })
+  assert(deletion.status === 'BLOCKED_BY_HOLD', '生效保全未阻止文档删除')
+  await api(`/document-governance/legal-holds/${hold.id}/release`, {
+    method: 'POST',
+    body: JSON.stringify({ reason: 'Acceptance completed' }),
+  })
+
+  const exportJob = await api('/document-governance/exports', {
+    method: 'POST',
+    body: JSON.stringify({ resourceType: 'DOCUMENT', query: '' }),
+  })
+  let completedExport = exportJob
+  for (let attempt = 0; attempt < 30 && completedExport.status !== 'COMPLETED'; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 300))
+    completedExport = await api(`/document-governance/exports/${exportJob.id}`)
+  }
+  assert(
+    completedExport.status === 'COMPLETED'
+      && completedExport.rowCount > 0
+      && completedExport.sha256?.length === 64,
+    '异步导出未生成带摘要的受控文件',
+  )
+})
+
+await check('P1 委托、工时、账单、回款与财务报表闭环', async () => {
+  const engagement = await api('/finance/engagements', {
+    method: 'POST',
+    body: JSON.stringify({
+      officeId: createdMatter.summary.officeId,
+      matterId: createdMatter.summary.id,
+      clientId: createdClient.id,
+      title: `P1 billing engagement ${nonce}`,
+      feeType: 'HOURLY',
+      rateAmount: 1200,
+      capAmount: 200000,
+      effectiveFrom: new Date().toISOString().slice(0, 10),
+      taxRate: 6,
+    }),
+  })
+  const approvedEngagement = await api(`/finance/engagements/${engagement.id}/approve`, {
+    method: 'POST',
+  })
+  assert(approvedEngagement.status === 'APPROVED', '委托收费约定审批失败')
+
+  const timeEntry = await api('/finance/time-entries', {
+    method: 'POST',
+    body: JSON.stringify({
+      matterId: createdMatter.summary.id,
+      workDate: new Date().toISOString().slice(0, 10),
+      minutes: 75,
+      description: 'P1 commercial acceptance work',
+      billable: true,
+    }),
+  })
+  assert(Number(timeEntry.amount) === 1500, '工时费率快照计算错误')
+  await api(`/finance/time-entries/${timeEntry.id}/submit`, { method: 'POST' })
+  const approvedTime = await api(`/finance/time-entries/${timeEntry.id}/approve`, {
+    method: 'POST',
+  })
+  assert(approvedTime.status === 'APPROVED', '工时审批失败')
+
+  const dueDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10)
+  const invoice = await api('/finance/invoices/draft', {
+    method: 'POST',
+    body: JSON.stringify({ engagementId: engagement.id, dueDate }),
+  })
+  assert(Number(invoice.totalAmount) === 1590, '账单税额或合计计算错误')
+  await api(`/finance/invoices/${invoice.id}/review`, { method: 'POST' })
+  const issued = await api(`/finance/invoices/${invoice.id}/issue`, { method: 'POST' })
+  assert(issued.status === 'ISSUED' && issued.invoiceNumber, '账单签发失败')
+
+  const payment = await api('/finance/payments', {
+    method: 'POST',
+    body: JSON.stringify({
+      officeId: createdMatter.summary.officeId,
+      paymentReference: `PAY-${nonce}`,
+      receivedOn: new Date().toISOString().slice(0, 10),
+      payerName: `Acceptance client ${nonce}`,
+      currency: issued.currency,
+      amount: issued.totalAmount,
+      method: 'BANK_TRANSFER',
+      bankReference: `BANK-${nonce}`,
+      allocations: [{ invoiceId: issued.id, amount: issued.totalAmount }],
+    }),
+  })
+  assert(Number(payment.unallocatedAmount) === 0, '回款分配未对平')
+  const report = await api(`/finance/reports?officeId=${createdMatter.summary.officeId}`)
+  assert(Number(report.collectedAmount) >= Number(issued.totalAmount), '财务报表未反映已回款')
+})
+
+await check('P1 管理控制台、集成健康与组织同步预演', async () => {
+  const [settings, users, roles, integrations] = await Promise.all([
+    api('/admin/settings'),
+    api('/admin/users?page=1&size=30'),
+    api('/admin/roles'),
+    api('/admin/integrations'),
+  ])
+  assert(settings.supportedLocales.includes('zh-CN') && settings.supportedLocales.includes('en-US'), '管理端双语设置缺失')
+  assert(users.total >= 3 && roles.some((role) => role.code === 'ADMIN'), '用户角色控制台数据缺失')
+  assert(
+    integrations.some((item) => item.integrationType === 'STORAGE' && item.healthStatus === 'UP')
+      && integrations.some((item) => item.integrationType === 'SCANNER'),
+    '集成健康状态不完整',
+  )
+
+  const dryRun = await api('/organization/sync/dry-run', {
+    method: 'POST',
+    body: JSON.stringify({
+      provider: 'MANUAL',
+      mode: 'SNAPSHOT',
+      deactivateMissingUsers: false,
+      departments: [{
+        externalDepartmentId: `dry-dept-${nonce}`,
+        name: `Dry run ${nonce}`,
+        sortOrder: 120,
+      }],
+      users: [{
+        externalUserId: `dry-user-${nonce}`,
+        username: `dry${nonce}`,
+        displayName: `Dry run user ${nonce}`,
+        status: 'ACTIVE',
+        departmentExternalIds: [`dry-dept-${nonce}`],
+      }],
+    }),
+  })
+  assert(dryRun.departmentsToCreate === 1 && dryRun.usersToCreate === 1, '组织同步预演差异计算错误')
+  const directory = await api('/organization/users')
+  assert(!directory.some((item) => item.username === `dry${nonce}`), '同步预演意外写入了用户')
+
+  const validation = await api('/admin/imports/validate', {
+    method: 'POST',
+    body: JSON.stringify({
+      importType: 'USERS',
+      originalFilename: `users-${nonce}.csv`,
+      rows: [
+        { username: `import-${nonce}`, office_code: 'DXB' },
+        { username: `import-${nonce}`, office_code: 'UNKNOWN' },
+      ],
+    }),
+  })
+  assert(validation.status === 'FAILED' && validation.errors.length >= 2, '导入逐行错误报告缺失')
+})
+
 console.log(`\n全部通过：${checks.length} 项功能验证。`)

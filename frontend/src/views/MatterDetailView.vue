@@ -104,7 +104,7 @@ interface MatterWorkspace {
 
 const route = useRoute()
 const router = useRouter()
-const { locale } = useI18n()
+const { locale, t } = useI18n()
 const workspace = ref<MatterWorkspace | null>(null)
 const loading = ref(true)
 const editVisible = ref(false)
@@ -136,35 +136,31 @@ const lifecycleActions = computed(() => {
   const status = workspace.value?.detail.summary.status
   if (status === 'CONFLICT_REVIEW') {
     return [
-      { status: 'ACTIVE', zh: '确认立案', en: 'Activate', icon: PlayCircle },
-      { status: 'REJECTED', zh: '拒绝立案', en: 'Reject', icon: XCircle },
+      { status: 'ACTIVE', labelKey: 'copy.lifecycle.activate', icon: PlayCircle },
+      { status: 'REJECTED', labelKey: 'copy.lifecycle.reject', icon: XCircle },
     ]
   }
   if (status === 'ACTIVE') {
     return [
-      { status: 'SUSPENDED', zh: '暂停案件', en: 'Suspend', icon: PauseCircle },
-      { status: 'CLOSED', zh: '结案', en: 'Close', icon: CheckCircle2 },
+      { status: 'SUSPENDED', labelKey: 'copy.lifecycle.suspend', icon: PauseCircle },
+      { status: 'CLOSED', labelKey: 'copy.lifecycle.close', icon: CheckCircle2 },
     ]
   }
   if (status === 'SUSPENDED') {
     return [
-      { status: 'ACTIVE', zh: '恢复办理', en: 'Resume', icon: PlayCircle },
-      { status: 'CLOSED', zh: '结案', en: 'Close', icon: CheckCircle2 },
+      { status: 'ACTIVE', labelKey: 'copy.lifecycle.resume', icon: PlayCircle },
+      { status: 'CLOSED', labelKey: 'copy.lifecycle.close', icon: CheckCircle2 },
     ]
   }
   if (status === 'CLOSED') {
-    return [{ status: 'ARCHIVED', zh: '正式归档', en: 'Archive', icon: ArchiveIcon }]
+    return [{ status: 'ARCHIVED', labelKey: 'copy.lifecycle.archive', icon: ArchiveIcon }]
   }
   return []
 })
 
-function text(zh: string, en: string) {
-  return isEnglish.value ? en : zh
-}
-
 function dateTime(value?: string) {
   if (!value) return '—'
-  return new Intl.DateTimeFormat(isEnglish.value ? 'en-US' : 'zh-CN', {
+  return new Intl.DateTimeFormat(t('copy.0257'), {
     year: 'numeric',
     month: 'short',
     day: '2-digit',
@@ -180,7 +176,7 @@ async function load() {
       `/matters/${String(route.params.id)}/workspace`,
     )).data
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('案件工作台加载失败', 'Failed to load matter workspace'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0202'))
   } finally {
     loading.value = false
   }
@@ -208,7 +204,7 @@ function openEdit() {
 
 async function saveMatter() {
   if (!workspace.value || !editForm.title.trim() || !editForm.responsibleUserId || !editForm.officeId) {
-    ElMessage.warning(text('请填写案件名称、承办律师和办公室', 'Title, responsible counsel and office are required'))
+    ElMessage.warning(t('copy.0203'))
     return
   }
   saving.value = true
@@ -223,9 +219,9 @@ async function saveMatter() {
     })
     editVisible.value = false
     await load()
-    ElMessage.success(text('案件资料已更新', 'Matter updated'))
+    ElMessage.success(t('copy.0204'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('案件更新失败', 'Failed to update matter'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0205'))
   } finally {
     saving.value = false
   }
@@ -235,14 +231,14 @@ async function transition(targetStatus: string) {
   if (!workspace.value || transitioning.value) return
   try {
     const result = await ElMessageBox.prompt(
-      text('请填写本次状态变更原因，该内容将进入审计记录。', 'Enter a reason. It will be included in the audit trail.'),
-      text('案件状态变更', 'Matter lifecycle change'),
+      t('copy.0206'),
+      t('copy.0207'),
       {
-        confirmButtonText: text('确认变更', 'Confirm'),
-        cancelButtonText: text('取消', 'Cancel'),
+        confirmButtonText: t('copy.0208'),
+        cancelButtonText: t('copy.0079'),
         inputType: 'textarea',
         inputPattern: /\S+/,
-        inputErrorMessage: text('必须填写变更原因', 'A reason is required'),
+        inputErrorMessage: t('copy.0209'),
       },
     )
     transitioning.value = true
@@ -251,10 +247,10 @@ async function transition(targetStatus: string) {
       reason: result.value,
     })
     await load()
-    ElMessage.success(text('案件状态已更新', 'Matter status updated'))
+    ElMessage.success(t('copy.0210'))
   } catch (error) {
     if (error === 'cancel' || error === 'close') return
-    ElMessage.error(error instanceof Error ? error.message : text('状态变更失败', 'Lifecycle update failed'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0211'))
   } finally {
     transitioning.value = false
   }
@@ -274,11 +270,11 @@ onMounted(async () => {
 <template>
   <section class="module-page matter-workspace">
     <button class="back-link" type="button" @click="router.push('/matters')">
-      <ArrowLeft :size="16" /> {{ text('返回案件列表', 'Back to matters') }}
+      <ArrowLeft :size="16" /> {{ t('copy.0212') }}
     </button>
 
     <div v-if="loading" class="panel empty-state">
-      {{ text('正在加载案件工作台…', 'Loading matter workspace…') }}
+      {{ t('copy.0213') }}
     </div>
 
     <template v-else-if="workspace">
@@ -290,11 +286,11 @@ onMounted(async () => {
           <p>
             {{ formatLegalCode(workspace.detail.summary.matterType, locale) }} ·
             {{ officeName || workspace.detail.summary.countryCode || '—' }} ·
-            {{ workspace.detail.summary.jurisdiction || text('未填写司法辖区', 'Jurisdiction not set') }}
+            {{ workspace.detail.summary.jurisdiction || t('copy.0214') }}
           </p>
         </div>
         <div class="hero-actions">
-          <button class="hero-button" type="button" @click="openEdit"><Pencil :size="15" /> {{ text('编辑资料', 'Edit') }}</button>
+          <button class="hero-button" type="button" @click="openEdit"><Pencil :size="15" /> {{ t('copy.0215') }}</button>
           <button
             v-for="action in lifecycleActions"
             :key="action.status"
@@ -303,147 +299,147 @@ onMounted(async () => {
             :disabled="transitioning"
             @click="transition(action.status)"
           >
-            <component :is="action.icon" :size="15" /> {{ isEnglish ? action.en : action.zh }}
+            <component :is="action.icon" :size="15" /> {{ t(action.labelKey) }}
           </button>
         </div>
         <div class="hero-status">
-          <span>{{ text('案件状态', 'Matter status') }}</span>
+          <span>{{ t('copy.0216') }}</span>
           <strong>{{ formatLegalCode(workspace.detail.summary.status, locale) }}</strong>
           <small>{{ workspace.detail.summary.confidentialityLevel }}</small>
         </div>
       </header>
 
       <div class="workspace-stats">
-        <div><Users :size="18" /><span>{{ text('团队成员', 'Team') }}</span><strong>{{ workspace.team.length }}</strong></div>
-        <div><CalendarClock :size="18" /><span>{{ text('未结期限', 'Deadlines') }}</span><strong>{{ workspace.deadlines.filter((item) => item.status === 'OPEN').length }}</strong></div>
-        <div><FileText :size="18" /><span>{{ text('案件文档', 'Documents') }}</span><strong>{{ workspace.documents.length }}</strong></div>
-        <div><FolderArchive :size="18" /><span>{{ text('电子卷宗', 'Archives') }}</span><strong>{{ workspace.archives.length }}</strong></div>
+        <div><Users :size="18" /><span>{{ t('copy.0217') }}</span><strong>{{ workspace.team.length }}</strong></div>
+        <div><CalendarClock :size="18" /><span>{{ t('copy.0218') }}</span><strong>{{ workspace.deadlines.filter((item) => item.status === 'OPEN').length }}</strong></div>
+        <div><FileText :size="18" /><span>{{ t('copy.0219') }}</span><strong>{{ workspace.documents.length }}</strong></div>
+        <div><FolderArchive :size="18" /><span>{{ t('copy.0220') }}</span><strong>{{ workspace.archives.length }}</strong></div>
       </div>
 
       <div class="workspace-grid">
         <article class="panel workspace-card overview-card">
-          <div class="workspace-heading"><ShieldCheck :size="19" /><h3>{{ text('案件概览', 'Matter overview') }}</h3></div>
+          <div class="workspace-heading"><ShieldCheck :size="19" /><h3>{{ t('copy.0221') }}</h3></div>
           <dl class="facts">
-            <div><dt>{{ text('承办律师', 'Responsible counsel') }}</dt><dd>{{ workspace.detail.summary.responsibleName }}</dd></div>
-            <div><dt>{{ text('案号 / 法院案号', 'Matter / court no.') }}</dt><dd>{{ workspace.detail.summary.matterNumber }}<span v-if="workspace.detail.caseNumber"> · {{ workspace.detail.caseNumber }}</span></dd></div>
-            <div><dt>{{ text('法院 / 机构', 'Court / authority') }}</dt><dd>{{ workspace.detail.courtName || '—' }}</dd></div>
-            <div><dt>{{ text('工作语言 / 币种', 'Language / currency') }}</dt><dd>{{ formatLegalCode(workspace.detail.summary.workingLanguage, locale) }} · {{ workspace.detail.summary.billingCurrency }}</dd></div>
+            <div><dt>{{ t('copy.0222') }}</dt><dd>{{ workspace.detail.summary.responsibleName }}</dd></div>
+            <div><dt>{{ t('copy.0223') }}</dt><dd>{{ workspace.detail.summary.matterNumber }}<span v-if="workspace.detail.caseNumber"> · {{ workspace.detail.caseNumber }}</span></dd></div>
+            <div><dt>{{ t('copy.0224') }}</dt><dd>{{ workspace.detail.courtName || '—' }}</dd></div>
+            <div><dt>{{ t('copy.0225') }}</dt><dd>{{ formatLegalCode(workspace.detail.summary.workingLanguage, locale) }} · {{ workspace.detail.summary.billingCurrency }}</dd></div>
           </dl>
-          <p class="matter-description">{{ workspace.detail.description || text('暂无案件说明。', 'No matter description.') }}</p>
+          <p class="matter-description">{{ workspace.detail.description || t('copy.0226') }}</p>
           <div class="party-strip">
             <span v-for="party in workspace.detail.parties" :key="`${party.partyId}-${party.partyRole}`">
               <strong>{{ party.partyName }}</strong> · {{ party.partyRole }} / {{ party.side }}
             </span>
-            <small v-if="!workspace.detail.parties.length">{{ text('暂未关联当事人', 'No linked parties') }}</small>
+            <small v-if="!workspace.detail.parties.length">{{ t('copy.0227') }}</small>
           </div>
         </article>
 
         <article class="panel workspace-card">
-          <div class="workspace-heading"><Users :size="19" /><h3>{{ text('办案团队', 'Matter team') }}</h3></div>
+          <div class="workspace-heading"><Users :size="19" /><h3>{{ t('copy.0228') }}</h3></div>
           <ul class="compact-list">
             <li v-for="member in workspace.team" :key="member.userId">
               <div><strong>{{ member.displayName }}</strong><span>{{ formatLegalCode(member.memberRole, locale) }}</span></div>
-              <span class="status-pill">{{ member.canDownload ? text('可下载', 'Download') : text('仅查看', 'View only') }}</span>
+              <span class="status-pill">{{ member.canDownload ? t('copy.0229') : t('copy.0230') }}</span>
             </li>
           </ul>
         </article>
 
         <article class="panel workspace-card">
-          <div class="workspace-heading"><CalendarClock :size="19" /><h3>{{ text('关键期限', 'Key deadlines') }}</h3></div>
+          <div class="workspace-heading"><CalendarClock :size="19" /><h3>{{ t('copy.0231') }}</h3></div>
           <ul class="compact-list">
             <li v-for="item in workspace.deadlines.slice(0, 6)" :key="item.id">
               <div><strong>{{ item.title }}</strong><span>{{ dateTime(item.dueAt) }} · {{ item.ownerName }}</span></div>
               <span class="status-pill">{{ formatLegalCode(item.priority, locale) }} · {{ formatLegalCode(item.status, locale) }}</span>
             </li>
-            <li v-if="!workspace.deadlines.length" class="list-empty">{{ text('暂无期限', 'No deadlines') }}</li>
+            <li v-if="!workspace.deadlines.length" class="list-empty">{{ t('copy.0232') }}</li>
           </ul>
         </article>
 
         <article class="panel workspace-card">
-          <div class="workspace-heading"><FileSignature :size="19" /><h3>{{ text('关联合同', 'Related contracts') }}</h3></div>
+          <div class="workspace-heading"><FileSignature :size="19" /><h3>{{ t('copy.0233') }}</h3></div>
           <ul class="compact-list">
             <li v-for="item in workspace.contracts" :key="item.id">
               <div><strong>{{ item.title }}</strong><span>{{ item.contractNumber }}<template v-if="item.amount"> · {{ item.currency }} {{ item.amount.toLocaleString() }}</template></span></div>
               <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
             </li>
-            <li v-if="!workspace.contracts.length" class="list-empty">{{ text('暂无关联合同', 'No related contracts') }}</li>
+            <li v-if="!workspace.contracts.length" class="list-empty">{{ t('copy.0234') }}</li>
           </ul>
         </article>
 
         <article class="panel workspace-card">
-          <div class="workspace-heading"><Stamp :size="19" /><h3>{{ text('审批与冲突检索', 'Approvals & conflicts') }}</h3></div>
+          <div class="workspace-heading"><Stamp :size="19" /><h3>{{ t('copy.0235') }}</h3></div>
           <ul class="compact-list">
             <li v-for="item in workspace.approvals.slice(0, 4)" :key="item.id">
               <div><strong>{{ item.processDefinitionKey }}</strong><span>{{ item.businessType }} · {{ dateTime(item.startedAt) }}</span></div>
               <span class="status-pill">{{ formatLegalCode(item.decision || item.status, locale) }}</span>
             </li>
             <li v-for="item in workspace.conflicts.slice(0, 4)" :key="item.id">
-              <div><strong>{{ item.requestNumber }} · {{ item.proposedMatterTitle }}</strong><span>{{ item.riskLevel || text('待评估', 'Pending review') }}</span></div>
+              <div><strong>{{ item.requestNumber }} · {{ item.proposedMatterTitle }}</strong><span>{{ item.riskLevel || t('copy.0236') }}</span></div>
               <span class="status-pill">{{ formatLegalCode(item.decision || item.status, locale) }}</span>
             </li>
             <li v-if="!workspace.approvals.length && !workspace.conflicts.length" class="list-empty">
-              {{ text('暂无审批或冲突检索记录', 'No approval or conflict records') }}
+              {{ t('copy.0237') }}
             </li>
           </ul>
         </article>
 
         <article class="panel workspace-card wide-card">
-          <div class="workspace-heading"><FileText :size="19" /><h3>{{ text('案件文档与卷宗', 'Documents & archives') }}</h3></div>
+          <div class="workspace-heading"><FileText :size="19" /><h3>{{ t('copy.0238') }}</h3></div>
           <div class="document-archive-grid">
             <div>
-              <h4>{{ text('文档', 'Documents') }}</h4>
+              <h4>{{ t('copy.0239') }}</h4>
               <ul class="compact-list">
                 <li v-for="item in workspace.documents.slice(0, 8)" :key="item.id">
                   <div><strong>{{ item.logicalName }}</strong><span>{{ formatLegalCode(item.documentType, locale) }} · V{{ item.versionNumber || '—' }}</span></div>
                   <span class="status-pill">{{ formatLegalCode(item.ingestionStatus || item.versionStatus || item.confidentialityLevel, locale) }}</span>
                 </li>
-                <li v-if="!workspace.documents.length" class="list-empty">{{ text('暂无案件文档', 'No matter documents') }}</li>
+                <li v-if="!workspace.documents.length" class="list-empty">{{ t('copy.0240') }}</li>
               </ul>
             </div>
             <div>
-              <h4>{{ text('电子卷宗', 'Archives') }}</h4>
+              <h4>{{ t('copy.0220') }}</h4>
               <ul class="compact-list">
                 <li v-for="item in workspace.archives" :key="item.id">
-                  <div><strong>{{ item.title }}</strong><span>{{ item.archiveNumber }} · {{ item.itemCount }} {{ text('份文件', 'files') }}</span></div>
+                  <div><strong>{{ item.title }}</strong><span>{{ item.archiveNumber }} · {{ item.itemCount }} {{ t('copy.0066') }}</span></div>
                   <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
                 </li>
-                <li v-if="!workspace.archives.length" class="list-empty">{{ text('暂无电子卷宗', 'No archives') }}</li>
+                <li v-if="!workspace.archives.length" class="list-empty">{{ t('copy.0241') }}</li>
               </ul>
             </div>
           </div>
         </article>
 
         <article class="panel workspace-card wide-card">
-          <div class="workspace-heading"><Activity :size="19" /><h3>{{ text('案件动态', 'Matter activity') }}</h3></div>
+          <div class="workspace-heading"><Activity :size="19" /><h3>{{ t('copy.0242') }}</h3></div>
           <ol class="activity-list">
             <li v-for="item in workspace.activity" :key="item.id">
               <time>{{ dateTime(item.eventAt) }}</time>
               <div><strong>{{ item.title }}</strong><span>{{ item.description || item.eventType }} · {{ item.createdByName }}</span></div>
             </li>
-            <li v-if="!workspace.activity.length" class="list-empty">{{ text('暂无案件动态', 'No matter activity') }}</li>
+            <li v-if="!workspace.activity.length" class="list-empty">{{ t('copy.0243') }}</li>
           </ol>
         </article>
       </div>
 
       <ElDialog
         v-model="editVisible"
-        :title="text('编辑案件资料', 'Edit matter')"
+        :title="t('copy.0244')"
         width="min(760px, 94vw)"
       >
         <form class="dialog-form two-column-form" @submit.prevent="saveMatter">
-          <label class="full-field"><span>{{ text('案件名称', 'Matter title') }}</span><input v-model="editForm.title" required maxlength="300" /></label>
-          <label><span>{{ text('案件类型', 'Matter type') }}</span><input v-model="editForm.matterType" required maxlength="80" /></label>
-          <label><span>{{ text('承办律师', 'Responsible counsel') }}</span><select v-model="editForm.responsibleUserId" required><option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName }}</option></select></label>
-          <label><span>{{ text('承办办公室', 'Lead office') }}</span><select v-model="editForm.officeId" required><option v-for="office in offices" :key="office.id" :value="office.id">{{ isEnglish ? office.nameEn : office.nameZh }}</option></select></label>
-          <label><span>{{ text('立案日期', 'Opened date') }}</span><input v-model="editForm.openedAt" type="date" /></label>
-          <label><span>{{ text('法院 / 机构', 'Court / authority') }}</span><input v-model="editForm.courtName" maxlength="300" /></label>
-          <label><span>{{ text('法院案号', 'Court case number') }}</span><input v-model="editForm.caseNumber" maxlength="150" /></label>
-          <label><span>{{ text('国家代码', 'Country code') }}</span><input v-model="editForm.countryCode" maxlength="2" /></label>
-          <label><span>{{ text('司法辖区', 'Jurisdiction') }}</span><input v-model="editForm.jurisdiction" maxlength="200" /></label>
-          <label><span>{{ text('工作语言', 'Working language') }}</span><select v-model="editForm.workingLanguage"><option value="zh-CN">中文 Chinese</option><option value="en-US">English 英文</option><option value="ar">العربية Arabic</option></select></label>
-          <label><span>{{ text('结算币种', 'Billing currency') }}</span><input v-model="editForm.billingCurrency" maxlength="3" /></label>
-          <label class="full-field"><span>{{ text('案件说明', 'Description') }}</span><textarea v-model="editForm.description" rows="4" maxlength="4000" /></label>
-          <button class="primary-action full full-field" type="submit" :disabled="saving">{{ saving ? text('保存中…', 'Saving…') : text('保存案件', 'Save matter') }}</button>
+          <label class="full-field"><span>{{ t('copy.0245') }}</span><input v-model="editForm.title" required maxlength="300" /></label>
+          <label><span>{{ t('copy.0246') }}</span><input v-model="editForm.matterType" required maxlength="80" /></label>
+          <label><span>{{ t('copy.0222') }}</span><select v-model="editForm.responsibleUserId" required><option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName }}</option></select></label>
+          <label><span>{{ t('copy.0247') }}</span><select v-model="editForm.officeId" required><option v-for="office in offices" :key="office.id" :value="office.id">{{ isEnglish ? office.nameEn : office.nameZh }}</option></select></label>
+          <label><span>{{ t('copy.0248') }}</span><input v-model="editForm.openedAt" type="date" /></label>
+          <label><span>{{ t('copy.0224') }}</span><input v-model="editForm.courtName" maxlength="300" /></label>
+          <label><span>{{ t('copy.0249') }}</span><input v-model="editForm.caseNumber" maxlength="150" /></label>
+          <label><span>{{ t('copy.0250') }}</span><input v-model="editForm.countryCode" maxlength="2" /></label>
+          <label><span>{{ t('copy.0251') }}</span><input v-model="editForm.jurisdiction" maxlength="200" /></label>
+          <label><span>{{ t('copy.0252') }}</span><select v-model="editForm.workingLanguage"><option value="zh-CN">{{ formatLegalCode('zh-CN', locale) }}</option><option value="en-US">{{ formatLegalCode('en-US', locale) }}</option><option value="ar">{{ formatLegalCode('ar', locale) }}</option></select></label>
+          <label><span>{{ t('copy.0253') }}</span><input v-model="editForm.billingCurrency" maxlength="3" /></label>
+          <label class="full-field"><span>{{ t('copy.0254') }}</span><textarea v-model="editForm.description" rows="4" maxlength="4000" /></label>
+          <button class="primary-action full full-field" type="submit" :disabled="saving">{{ saving ? t('copy.0255') : t('copy.0256') }}</button>
         </form>
       </ElDialog>
     </template>

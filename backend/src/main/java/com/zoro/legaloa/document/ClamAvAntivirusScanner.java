@@ -71,4 +71,18 @@ public class ClamAvAntivirusScanner implements AntivirusScanner {
     public String provider() {
         return "clamav";
     }
+
+    @Override
+    public boolean isHealthy() {
+        try (var socket = new Socket()) {
+            socket.connect(new InetSocketAddress(host, port), Math.min(timeoutMillis, 3000));
+            socket.setSoTimeout(Math.min(timeoutMillis, 3000));
+            socket.getOutputStream().write("zPING\0".getBytes(StandardCharsets.US_ASCII));
+            socket.getOutputStream().flush();
+            byte[] response = socket.getInputStream().readNBytes(4);
+            return "PONG".equals(new String(response, StandardCharsets.US_ASCII));
+        } catch (IOException exception) {
+            return false;
+        }
+    }
 }

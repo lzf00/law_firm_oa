@@ -27,6 +27,11 @@ public class OrganizationSyncController {
         return syncService.sync(request);
     }
 
+    @PostMapping("/dry-run")
+    OrganizationSyncDryRun dryRun(@Valid @RequestBody OrganizationSyncRequest request) {
+        return syncService.dryRun(request);
+    }
+
     @GetMapping("/runs")
     List<OrganizationSyncResult> runs() {
         return syncService.runs();
@@ -79,5 +84,15 @@ public class OrganizationSyncController {
             int usersSeen,
             int departmentsChanged,
             int usersChanged
+    ) {}
+
+    public record OrganizationSyncDryRun(
+            String provider,
+            int departmentsToCreate,
+            int departmentsToUpdate,
+            int usersToCreate,
+            int usersToUpdate,
+            int usersToDeactivate,
+            List<String> warnings
     ) {}
 }

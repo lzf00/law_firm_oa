@@ -32,42 +32,42 @@ async function createAndSubmit() {
     })
     dialog.value = false
     await load()
-    ElMessage.success(text('请假申请已提交，进入两级审批', 'Leave request submitted for two-level approval'))
-  } catch (error) { ElMessage.error(error instanceof Error ? error.message : text('请假提交失败', 'Failed to submit leave request')) }
+    ElMessage.success(t('copy.0179'))
+  } catch (error) { ElMessage.error(error instanceof Error ? error.message : t('copy.0180')) }
 }
-onMounted(() => load().catch(() => ElMessage.error(text('请假数据加载失败', 'Failed to load leave requests'))))
+onMounted(() => load().catch(() => ElMessage.error(t('copy.0181'))))
 </script>
 
 <template>
   <section class="module-page">
     <div class="page-intro">
-      <div><span class="eyebrow">LEAVE · {{ pending }} PENDING</span><h2>{{ t('headline.leave') }}</h2><p>{{ text('支持年假、事假、病假等类型，负责人审批后由人事复核登记。', 'Supports multiple leave types, with manager approval followed by HR review and registration.') }}</p></div>
-      <button class="primary-action" @click="dialog = true"><Plus :size="17" /> {{ text('请假申请', 'Request leave') }}</button>
+      <div><span class="eyebrow">LEAVE · {{ pending }} PENDING</span><h2>{{ t('headline.leave') }}</h2><p>{{ t('copy.0182') }}</p></div>
+      <button class="primary-action" @click="dialog = true"><Plus :size="17" /> {{ t('copy.0183') }}</button>
     </div>
-    <div class="panel table-panel">
+    <div class="panel table-panel" tabindex="0">
       <table>
-        <thead><tr><th>{{ text('申请编号', 'Request no.') }}</th><th>{{ text('申请人 / 类型', 'Applicant / type') }}</th><th>{{ text('时间', 'Dates') }}</th><th>{{ text('时长', 'Duration') }}</th><th>{{ text('事由', 'Reason') }}</th><th>{{ text('状态', 'Status') }}</th></tr></thead>
+        <thead><tr><th>{{ t('copy.0184') }}</th><th>{{ t('copy.0185') }}</th><th>{{ t('copy.0186') }}</th><th>{{ t('copy.0187') }}</th><th>{{ t('copy.0188') }}</th><th>{{ t('copy.0189') }}</th></tr></thead>
         <tbody>
           <tr v-for="item in items" :key="item.id">
             <td class="mono">{{ item.requestNumber }}</td>
             <td><strong>{{ item.applicantName }}</strong><small>{{ formatLegalCode(item.leaveType, locale) }}</small></td>
-            <td><strong>{{ new Date(item.startAt).toLocaleString(locale) }}</strong><small>{{ text('至', 'to') }} {{ new Date(item.endAt).toLocaleString(locale) }}</small></td>
-            <td>{{ item.durationHours }} {{ text('小时', 'hours') }}</td><td>{{ item.reason }}</td><td><span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span></td>
+            <td><strong>{{ new Date(item.startAt).toLocaleString(locale) }}</strong><small>{{ t('copy.0190') }} {{ new Date(item.endAt).toLocaleString(locale) }}</small></td>
+            <td>{{ item.durationHours }} {{ t('copy.0191') }}</td><td>{{ item.reason }}</td><td><span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span></td>
           </tr>
         </tbody>
       </table>
-      <div v-if="!items.length" class="empty-state"><CalendarDays :size="30" /> {{ text('暂无请假记录', 'No leave requests') }}</div>
+      <div v-if="!items.length" class="empty-state"><CalendarDays :size="30" /> {{ t('copy.0192') }}</div>
     </div>
-    <el-dialog v-model="dialog" :title="text('提交请假申请', 'Submit leave request')" width="540px">
+    <el-dialog v-model="dialog" :title="t('copy.0193')" width="540px">
       <div class="dialog-form two-column-form">
-        <label><span>{{ text('请假类型', 'Leave type') }}</span><select v-model="form.leaveType"><option v-for="code in leaveTypes" :key="code" :value="code">{{ formatLegalCode(code, locale) }}</option></select></label>
-        <label><span>{{ text('请假时长（小时）', 'Duration (hours)') }}</span><input v-model.number="form.durationHours" type="number" min="0.25" step="0.25" /></label>
-        <label><span>{{ text('开始时间', 'Start') }}</span><input v-model="form.startAt" type="datetime-local" /></label>
-        <label><span>{{ text('结束时间', 'End') }}</span><input v-model="form.endAt" type="datetime-local" /></label>
-        <label class="full-field"><span>{{ text('请假事由', 'Reason') }}</span><textarea v-model="form.reason" rows="4" :placeholder="text('请说明请假原因', 'Explain the reason for leave')"></textarea></label>
-        <label class="full-field"><span>{{ text('紧急联系人', 'Emergency contact') }}</span><input v-model="form.emergencyContact" :placeholder="text('选填', 'Optional')" /></label>
+        <label><span>{{ t('copy.0194') }}</span><select v-model="form.leaveType"><option v-for="code in leaveTypes" :key="code" :value="code">{{ formatLegalCode(code, locale) }}</option></select></label>
+        <label><span>{{ t('copy.0195') }}</span><input v-model.number="form.durationHours" type="number" min="0.25" step="0.25" /></label>
+        <label><span>{{ t('copy.0196') }}</span><input v-model="form.startAt" type="datetime-local" /></label>
+        <label><span>{{ t('copy.0197') }}</span><input v-model="form.endAt" type="datetime-local" /></label>
+        <label class="full-field"><span>{{ t('copy.0198') }}</span><textarea v-model="form.reason" rows="4" :placeholder="t('copy.0199')"></textarea></label>
+        <label class="full-field"><span>{{ t('copy.0200') }}</span><input v-model="form.emergencyContact" :placeholder="t('copy.0201')" /></label>
       </div>
-      <template #footer><button class="primary-action" @click="createAndSubmit"><Send :size="16" /> {{ text('创建并提交审批', 'Create and submit') }}</button></template>
+      <template #footer><button class="primary-action" @click="createAndSubmit"><Send :size="16" /> {{ t('copy.0178') }}</button></template>
     </el-dialog>
   </section>
 </template>

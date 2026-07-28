@@ -8,6 +8,10 @@ public interface AntivirusScanner {
 
     String provider();
 
+    default boolean isHealthy() {
+        return true;
+    }
+
     record ScanMetadata(String filename, String contentType, long sizeBytes) {}
 
     record ScanResult(Status status, String signature, String detail) {

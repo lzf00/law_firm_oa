@@ -13,3 +13,4 @@ storage/
 *.log
 backups/
 test-results/
+release-evidence/

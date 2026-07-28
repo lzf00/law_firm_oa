@@ -11,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.validation.FieldError;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -63,6 +64,21 @@ public class GlobalExceptionHandler {
         }
         return ResponseEntity.badRequest().body(
                 ApiError.of("PARAMETER_INVALID", message)
+        );
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    ResponseEntity<ApiError> handleMethodValidation(
+            HandlerMethodValidationException exception,
+            Locale locale
+    ) {
+        return ResponseEntity.badRequest().body(
+                ApiError.of(
+                        "VALIDATION_FAILED",
+                        ApiMessageCatalog.message(
+                                "VALIDATION_FAILED", "请求参数校验失败", locale
+                        )
+                )
         );
     }
 

@@ -73,7 +73,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "${FRONTEND_PORT:-18080}:80"
+      - "${FRONTEND_PORT:-18080}:8080"
     depends_on:
       - backend
 

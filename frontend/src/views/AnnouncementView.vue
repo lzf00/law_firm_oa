@@ -39,7 +39,7 @@ async function load() {
 }
 
 async function create() {
-  if (!form.title.trim() || !form.content.trim()) return ElMessage.warning(text('请填写公告标题和正文', 'Enter an announcement title and body'))
+  if (!form.title.trim() || !form.content.trim()) return ElMessage.warning(t('copy.0001'))
   busy.value = true
   try {
     const created = (await http.post<Announcement>('/announcements', {
@@ -60,9 +60,9 @@ async function create() {
         : publishableOffices.value[0]?.id ?? '',
     })
     await load()
-    ElMessage.success(text('公告已发布，并进入站内通知队列', 'Announcement published and queued for in-app delivery'))
+    ElMessage.success(t('copy.0002'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : text('公告发布失败', 'Failed to publish announcement'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0003'))
   } finally {
     busy.value = false
   }
@@ -74,7 +74,7 @@ async function markRead(item: Announcement) {
   await load()
 }
 
-onMounted(() => load().catch(() => ElMessage.error(text('公告加载失败', 'Failed to load announcements'))))
+onMounted(() => load().catch(() => ElMessage.error(t('copy.0004'))))
 </script>
 
 <template>
@@ -83,9 +83,9 @@ onMounted(() => load().catch(() => ElMessage.error(text('公告加载失败', 'F
       <div>
         <span class="eyebrow">FIRM BULLETIN · {{ unread }} UNREAD</span>
         <h2>{{ t('headline.announcements') }}</h2>
-        <p>{{ text('支持草稿、发布、优先级、范围控制与已读回执，发布后自动生成站内通知。', 'Draft, publish, prioritize and scope announcements with read receipts and automatic in-app delivery.') }}</p>
+        <p>{{ t('copy.0005') }}</p>
       </div>
-      <button class="primary-action" @click="dialog = true"><Plus :size="17" /> {{ text('发布公告', 'New announcement') }}</button>
+      <button class="primary-action" @click="dialog = true"><Plus :size="17" /> {{ t('copy.0006') }}</button>
     </div>
 
     <div class="announcement-grid">
@@ -98,28 +98,28 @@ onMounted(() => load().catch(() => ElMessage.error(text('公告加载失败', 'F
       >
         <div class="announcement-top">
           <span class="status-pill">{{ formatLegalCode(item.priority, locale) }}</span>
-          <span>{{ (locale === 'en-US' ? item.officeNameEn : item.officeNameZh) || text('全所', 'Firm-wide') }} · {{ formatLegalCode(item.status, locale) }}</span>
+          <span>{{ (locale === 'en-US' ? item.officeNameEn : item.officeNameZh) || t('copy.0007') }} · {{ formatLegalCode(item.status, locale) }}</span>
         </div>
         <Megaphone :size="23" />
         <h3>{{ item.title }}</h3>
         <p>{{ item.summary || item.content }}</p>
         <div class="announcement-foot">
           <span>{{ item.publisherName }} · {{ item.publishedAt ? new Date(item.publishedAt).toLocaleDateString(locale) : formatLegalCode('DRAFT', locale) }}</span>
-          <span><CheckCheck :size="14" /> {{ item.readCount }} {{ text('已读', 'read') }}</span>
+          <span><CheckCheck :size="14" /> {{ item.readCount }} {{ t('copy.0008') }}</span>
         </div>
       </article>
-      <div v-if="!items.length" class="panel empty-state">{{ text('暂无公告', 'No announcements') }}</div>
+      <div v-if="!items.length" class="panel empty-state">{{ t('copy.0009') }}</div>
     </div>
 
-    <el-dialog v-model="dialog" :title="text('发布公告', 'Publish announcement')" width="560px">
+    <el-dialog v-model="dialog" :title="t('copy.0010')" width="560px">
       <div class="dialog-form">
-        <label><span>{{ text('标题', 'Title') }}</span><input v-model="form.title" :placeholder="text('公告标题', 'Announcement title')" /></label>
-        <label><span>{{ text('摘要', 'Summary') }}</span><input v-model="form.summary" :placeholder="text('一句话说明重点', 'Summarize the key point')" /></label>
-        <label><span>{{ text('优先级', 'Priority') }}</span><select v-model="form.priority"><option value="NORMAL">{{ formatLegalCode('NORMAL', locale) }}</option><option value="IMPORTANT">{{ formatLegalCode('IMPORTANT', locale) }}</option><option value="URGENT">{{ formatLegalCode('URGENT', locale) }}</option></select></label>
+        <label><span>{{ t('copy.0011') }}</span><input v-model="form.title" :placeholder="t('copy.0012')" /></label>
+        <label><span>{{ t('copy.0013') }}</span><input v-model="form.summary" :placeholder="t('copy.0014')" /></label>
+        <label><span>{{ t('copy.0015') }}</span><select v-model="form.priority"><option value="NORMAL">{{ formatLegalCode('NORMAL', locale) }}</option><option value="IMPORTANT">{{ formatLegalCode('IMPORTANT', locale) }}</option><option value="URGENT">{{ formatLegalCode('URGENT', locale) }}</option></select></label>
         <label>
-          <span>{{ text('发布范围', 'Audience') }}</span>
+          <span>{{ t('copy.0016') }}</span>
           <select v-model="form.officeId">
-            <option v-if="currentUser?.globalOfficeAccess" value="">{{ text('全所', 'Firm-wide') }}</option>
+            <option v-if="currentUser?.globalOfficeAccess" value="">{{ t('copy.0007') }}</option>
             <option
               v-for="office in publishableOffices"
               :key="office.id"
@@ -129,9 +129,9 @@ onMounted(() => load().catch(() => ElMessage.error(text('公告加载失败', 'F
             </option>
           </select>
         </label>
-        <label><span>{{ text('正文', 'Body') }}</span><textarea v-model="form.content" rows="7" :placeholder="text('填写公告正文', 'Enter announcement body')"></textarea></label>
+        <label><span>{{ t('copy.0017') }}</span><textarea v-model="form.content" rows="7" :placeholder="t('copy.0018')"></textarea></label>
       </div>
-      <template #footer><button class="primary-action" :disabled="busy" @click="create"><Send :size="16" /> {{ busy ? text('发布中', 'Publishing…') : text('确认发布', 'Publish') }}</button></template>
+      <template #footer><button class="primary-action" :disabled="busy" @click="create"><Send :size="16" /> {{ busy ? t('copy.0019') : t('copy.0020') }}</button></template>
     </el-dialog>
   </section>
 </template>

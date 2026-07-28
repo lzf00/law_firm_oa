@@ -95,7 +95,7 @@ async function beginDingTalkLogin() {
         :aria-label="t('shell.language')"
         @click="toggleLocale"
       >
-        <Languages :size="16" />{{ locale === 'zh-CN' ? 'EN' : '中文' }}
+        <Languages :size="16" />{{ t('copy.language.short') }}
       </button>
       <div class="access-card">
         <div class="access-icon"><BriefcaseBusiness :size="25" /></div>
@@ -198,7 +198,7 @@ async function beginDingTalkLogin() {
     linear-gradient(135deg, transparent 0 56%, rgba(255, 255, 255, .025) 56% 57%, transparent 57%);
 }
 .login-story::after {
-  content: "法";
+  content: "\6CD5";
   position: absolute;
   right: 4%;
   bottom: -10%;

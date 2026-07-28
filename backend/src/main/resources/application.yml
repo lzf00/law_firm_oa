@@ -20,8 +20,13 @@ spring:
     enabled: true
   data:
     redis:
+      username: ${REDIS_USERNAME:}
+      password: ${REDIS_PASSWORD:}
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6380}
+      timeout: ${REDIS_TIMEOUT:3s}
+      ssl:
+        enabled: ${REDIS_SSL_ENABLED:false}
   servlet:
     multipart:
       max-file-size: 200MB
@@ -32,6 +37,13 @@ server:
   forward-headers-strategy: framework
 
 management:
+  metrics:
+    tags:
+      application: ${spring.application.name}
+      version: ${APP_VERSION:development}
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
   endpoints:
     web:
       exposure:
@@ -67,3 +79,5 @@ app:
     cleanup:
       interval: ${DOCUMENT_CLEANUP_INTERVAL:PT1H}
       batch-size: ${DOCUMENT_CLEANUP_BATCH_SIZE:100}
+  jobs:
+    metrics-refresh: ${JOBS_METRICS_REFRESH:PT1M}

@@ -57,7 +57,7 @@ async function load() {
     clients.value = clientResponse.data
     users.value = userResponse.data
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : (isEnglish.value ? 'Could not load parties' : '主体加载失败'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0287'))
   } finally {
     loading.value = false
   }
@@ -77,7 +77,7 @@ function openParty(party?: Party) {
 
 async function saveParty() {
   if (!partyForm.displayName.trim()) {
-    ElMessage.warning(isEnglish.value ? 'Party name is required' : '请填写主体名称')
+    ElMessage.warning(t('copy.0288'))
     return
   }
   saving.value = true
@@ -96,9 +96,9 @@ async function saveParty() {
     }
     partyDialog.value = false
     await load()
-    ElMessage.success(isEnglish.value ? 'Party saved' : '主体已保存')
+    ElMessage.success(t('copy.0289'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : (isEnglish.value ? 'Could not save party' : '主体保存失败'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0290'))
   } finally {
     saving.value = false
   }
@@ -122,7 +122,7 @@ function editClient(client: Client) {
 
 async function saveClient() {
   if (!clientForm.clientNumber.trim()) {
-    ElMessage.warning(isEnglish.value ? 'Client number is required' : '请填写客户编号')
+    ElMessage.warning(t('copy.0291'))
     return
   }
   saving.value = true
@@ -140,9 +140,9 @@ async function saveClient() {
     }
     clientDialog.value = false
     await load()
-    ElMessage.success(isEnglish.value ? 'Client profile saved' : '客户档案已保存')
+    ElMessage.success(t('copy.0292'))
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : (isEnglish.value ? 'Could not save client' : '客户保存失败'))
+    ElMessage.error(error instanceof Error ? error.message : t('copy.0293'))
   } finally {
     saving.value = false
   }
@@ -158,15 +158,15 @@ onMounted(load)
       <div>
         <span class="eyebrow">PARTY MASTER</span>
         <h2>{{ t('headline.parties') }}</h2>
-        <p>{{ isEnglish ? 'Manage clients, counterparties and aliases in one conflict-searchable register.' : '客户、相对方及关联主体统一管理，别名也会进入冲突检索。' }}</p>
+        <p>{{ t('copy.0372') }}</p>
       </div>
-      <button class="primary-action" @click="openParty()"><Plus :size="17" /> {{ isEnglish ? 'New party' : '新建主体' }}</button>
+      <button class="primary-action" @click="openParty()"><Plus :size="17" /> {{ t('copy.0373') }}</button>
     </div>
 
     <div class="toolbar">
       <label class="search-box wide">
         <Search :size="17" />
-        <input v-model="query" :placeholder="isEnglish ? 'Search names, short names or former names' : '按主体名称、简称或曾用名检索'" />
+        <input v-model="query" :placeholder="t('copy.0374')" />
       </label>
     </div>
 
@@ -179,56 +179,56 @@ onMounted(load)
         <div class="party-copy">
           <strong>{{ party.displayName }}</strong>
           <span>{{ formatLegalCode(party.partyType, locale) }}</span>
-          <small v-if="party.aliases.length">{{ isEnglish ? 'Aliases' : '别名' }}：{{ party.aliases.join('、') }}</small>
+          <small v-if="party.aliases.length">{{ t('copy.0375') }}：{{ party.aliases.join('、') }}</small>
         </div>
         <div class="card-actions">
-          <button class="table-action" :aria-label="isEnglish ? 'Edit party' : '编辑主体'" @click="openParty(party)"><Pencil :size="15" /></button>
+          <button class="table-action" :aria-label="t('copy.0376')" @click="openParty(party)"><Pencil :size="15" /></button>
           <button
             v-if="!clients.some((client) => client.partyId === party.id)"
             class="table-action"
             @click="openClient(party)"
-          ><UserRoundCheck :size="15" /> {{ isEnglish ? 'Make client' : '转为客户' }}</button>
+          ><UserRoundCheck :size="15" /> {{ t('copy.0377') }}</button>
         </div>
         <span class="risk-dot" :class="party.riskLevel.toLowerCase()">{{ formatLegalCode(party.riskLevel, locale) }}</span>
       </article>
     </div>
-    <div v-if="!loading && parties.length === 0" class="panel empty-state">{{ isEnglish ? 'No matching party' : '未找到匹配主体' }}</div>
+    <div v-if="!loading && parties.length === 0" class="panel empty-state">{{ t('copy.0378') }}</div>
 
-    <div class="panel table-panel">
+    <div class="panel table-panel" tabindex="0">
       <div class="panel-heading">
-        <div><span class="eyebrow">CLIENT REGISTER</span><h3>{{ isEnglish ? 'Client profiles' : '客户档案' }}</h3></div>
+        <div><span class="eyebrow">CLIENT REGISTER</span><h3>{{ t('copy.0379') }}</h3></div>
         <span class="status-pill">{{ clients.length }}</span>
       </div>
       <table v-if="clients.length">
-        <thead><tr><th>{{ isEnglish ? 'Client no.' : '客户编号' }}</th><th>{{ isEnglish ? 'Name' : '客户名称' }}</th><th>{{ isEnglish ? 'Owner' : '客户负责人' }}</th><th>{{ isEnglish ? 'Status' : '状态' }}</th><th>{{ isEnglish ? 'Action' : '操作' }}</th></tr></thead>
+        <thead><tr><th>{{ t('copy.0380') }}</th><th>{{ t('copy.0381') }}</th><th>{{ t('copy.0382') }}</th><th>{{ t('copy.0189') }}</th><th>{{ t('copy.0383') }}</th></tr></thead>
         <tbody>
           <tr v-for="client in clients" :key="client.id">
             <td class="mono">{{ client.clientNumber }}</td><td><strong>{{ client.displayName }}</strong></td>
             <td>{{ client.ownerName || '—' }}</td><td><span class="status-pill">{{ formatLegalCode(client.status, locale) }}</span></td>
-            <td><button class="table-action" @click="editClient(client)"><Pencil :size="15" /> {{ isEnglish ? 'Edit' : '编辑' }}</button></td>
+            <td><button class="table-action" @click="editClient(client)"><Pencil :size="15" /> {{ t('copy.0326') }}</button></td>
           </tr>
         </tbody>
       </table>
-      <div v-else class="empty-state">{{ isEnglish ? 'No client profiles yet' : '尚无客户档案' }}</div>
+      <div v-else class="empty-state">{{ t('copy.0384') }}</div>
     </div>
 
-    <ElDialog v-model="partyDialog" :title="editingPartyId ? (isEnglish ? 'Edit party' : '编辑主体') : (isEnglish ? 'New party' : '新建主体')" width="min(640px, 94vw)">
+    <ElDialog v-model="partyDialog" :title="editingPartyId ? (t('copy.0376')) : (t('copy.0373'))" width="min(640px, 94vw)">
       <form class="dialog-form two-column-form" @submit.prevent="saveParty">
-        <label><span>{{ isEnglish ? 'Party type' : '主体类型' }}</span><select v-model="partyForm.partyType"><option value="ORGANIZATION">{{ isEnglish ? 'Organization' : '机构' }}</option><option value="PERSON">{{ isEnglish ? 'Individual' : '自然人' }}</option><option value="GOVERNMENT">{{ isEnglish ? 'Government' : '政府机构' }}</option><option value="OTHER">{{ isEnglish ? 'Other' : '其他' }}</option></select></label>
-        <label><span>{{ isEnglish ? 'Unified credit code' : '统一社会信用代码' }}</span><input v-model="partyForm.unifiedSocialCreditCode" maxlength="64" /></label>
-        <label class="full-field"><span>{{ isEnglish ? 'Display name' : '主体名称' }}</span><input v-model="partyForm.displayName" required maxlength="300" /></label>
-        <label class="full-field"><span>{{ isEnglish ? 'Aliases (comma separated)' : '别名（逗号分隔）' }}</span><input v-model="partyForm.aliasesText" maxlength="1000" /></label>
-        <label class="full-field"><span>{{ isEnglish ? 'Notes' : '备注' }}</span><textarea v-model="partyForm.notes" rows="3" maxlength="500" /></label>
-        <button class="primary-action full full-field" type="submit" :disabled="saving">{{ saving ? t('common.saving') : (isEnglish ? 'Save party' : '保存主体') }}</button>
+        <label><span>{{ t('copy.0385') }}</span><select v-model="partyForm.partyType"><option value="ORGANIZATION">{{ t('copy.0386') }}</option><option value="PERSON">{{ t('copy.0387') }}</option><option value="GOVERNMENT">{{ t('copy.0388') }}</option><option value="OTHER">{{ t('copy.0389') }}</option></select></label>
+        <label><span>{{ t('copy.0390') }}</span><input v-model="partyForm.unifiedSocialCreditCode" maxlength="64" /></label>
+        <label class="full-field"><span>{{ t('copy.0391') }}</span><input v-model="partyForm.displayName" required maxlength="300" /></label>
+        <label class="full-field"><span>{{ t('copy.0392') }}</span><input v-model="partyForm.aliasesText" maxlength="1000" /></label>
+        <label class="full-field"><span>{{ t('copy.0282') }}</span><textarea v-model="partyForm.notes" rows="3" maxlength="500" /></label>
+        <button class="primary-action full full-field" type="submit" :disabled="saving">{{ saving ? t('common.saving') : (t('copy.0393')) }}</button>
       </form>
     </ElDialog>
 
-    <ElDialog v-model="clientDialog" :title="editingClientId ? (isEnglish ? 'Edit client profile' : '编辑客户档案') : (isEnglish ? 'Create client profile' : '建立客户档案')" width="min(560px, 94vw)">
+    <ElDialog v-model="clientDialog" :title="editingClientId ? (t('copy.0394')) : (t('copy.0395'))" width="min(560px, 94vw)">
       <form class="dialog-form" @submit.prevent="saveClient">
-        <label><span>{{ isEnglish ? 'Client number' : '客户编号' }}</span><input v-model="clientForm.clientNumber" required maxlength="60" /></label>
-        <label><span>{{ isEnglish ? 'Client owner' : '客户负责人' }}</span><select v-model="clientForm.ownerUserId"><option value="">{{ isEnglish ? 'Unassigned' : '暂不指定' }}</option><option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName }}</option></select></label>
-        <label><span>{{ isEnglish ? 'Source' : '客户来源' }}</span><input v-model="clientForm.source" maxlength="100" /></label>
-        <button class="primary-action full" type="submit" :disabled="saving">{{ saving ? t('common.saving') : (isEnglish ? 'Save client' : '保存客户') }}</button>
+        <label><span>{{ t('copy.0396') }}</span><input v-model="clientForm.clientNumber" required maxlength="60" /></label>
+        <label><span>{{ t('copy.0397') }}</span><select v-model="clientForm.ownerUserId"><option value="">{{ t('copy.0398') }}</option><option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName }}</option></select></label>
+        <label><span>{{ t('copy.0399') }}</span><input v-model="clientForm.source" maxlength="100" /></label>
+        <button class="primary-action full" type="submit" :disabled="saving">{{ saving ? t('common.saving') : (t('copy.0400')) }}</button>
       </form>
     </ElDialog>
   </section>

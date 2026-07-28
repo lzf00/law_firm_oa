@@ -1,9 +1,20 @@
 import { computed, ref } from 'vue'
+import { reviewedCopyCatalog } from './reviewedCopyCatalog'
 
 export type Locale = 'zh-CN' | 'en-US'
 
+const reviewedMessages: Record<Locale, Record<string, string>> = {
+  'zh-CN': Object.fromEntries(
+    Object.entries(reviewedCopyCatalog).map(([key, value]) => [key, value.zh]),
+  ),
+  'en-US': Object.fromEntries(
+    Object.entries(reviewedCopyCatalog).map(([key, value]) => [key, value.en]),
+  ),
+}
+
 export const messages: Record<Locale, Record<string, string>> = {
   'zh-CN': {
+    ...reviewedMessages['zh-CN'],
     'nav.daily': '日常工作',
     'nav.organization': '组织门户',
     'nav.assets': '业务资产',
@@ -23,6 +34,9 @@ export const messages: Record<Locale, Record<string, string>> = {
     'nav.contracts': '合同管理',
     'nav.documents': '文档中心',
     'nav.archives': '电子卷宗',
+    'nav.documentGovernance': '文档治理',
+    'nav.finance': '财务与计费',
+    'nav.admin': '管理控制台',
     'shell.security': '安全审计已开启',
     'shell.securityDetail': '所有敏感操作留痕',
     'shell.session': '内部安全会话',
@@ -49,6 +63,51 @@ export const messages: Record<Locale, Record<string, string>> = {
     'page.meetings': '会议室',
     'page.directory': '组织通讯录',
     'page.offices': '全球办公室',
+    'page.documentGovernance': '文档治理',
+    'page.finance': '财务与计费',
+    'page.admin': '管理控制台',
+    'p1.governanceHeadline': '把知识复用、全文检索、保留期限与诉讼保全纳入同一条证据链。',
+    'p1.financeHeadline': '从委托收费到工时、账单与回款，形成可核对的财务闭环。',
+    'p1.adminHeadline': '以最小权限管理组织、流程、集成和数据交付。',
+    'p1.search': '全文检索',
+    'p1.searchPlaceholder': '输入文件名或已索引文本',
+    'p1.searchAction': '检索',
+    'p1.templates': '文档模板',
+    'p1.clauses': '条款库',
+    'p1.holds': '诉讼保全',
+    'p1.retention': '保留规则',
+    'p1.exports': '审计导出',
+    'p1.exportAction': '生成文档清单',
+    'p1.exportQueued': '导出任务已进入安全队列',
+    'p1.noData': '暂无数据',
+    'p1.loadFailed': '数据加载失败',
+    'p1.status': '状态',
+    'p1.version': '版本',
+    'p1.scope': '适用范围',
+    'p1.risk': '风险等级',
+    'p1.years': '年',
+    'p1.report': '财务概览',
+    'p1.engagements': '委托与收费约定',
+    'p1.timeEntries': '工时',
+    'p1.invoices': '账单与应收',
+    'p1.wip': '已审批在制品',
+    'p1.unbilled': '未开票工时',
+    'p1.revenue': '已开票收入',
+    'p1.receivables': '应收余额',
+    'p1.collected': '已回款',
+    'p1.utilization': '可计费利用率',
+    'p1.amount': '金额',
+    'p1.minutes': '分钟',
+    'p1.outstanding': '未收金额',
+    'p1.settings': '律所品牌与区域设置',
+    'p1.users': '用户与权限',
+    'p1.roles': '角色权限',
+    'p1.integrations': '集成健康',
+    'p1.workflowRules': '流程分派规则',
+    'p1.up': '正常',
+    'p1.down': '异常',
+    'p1.unknown': '待配置',
+    'p1.lastChecked': '检查时间',
     'headline.dashboard': '早上好，今天先处理最重要的事。',
     'headline.matters': '案件是所有协作与权限的边界。',
     'headline.parties': '一个主体，一份可信档案。',
@@ -113,6 +172,7 @@ export const messages: Record<Locale, Record<string, string>> = {
     'login.footnote': '登录即表示你同意遵守律所信息安全与客户保密制度',
   },
   'en-US': {
+    ...reviewedMessages['en-US'],
     'nav.daily': 'Daily Work',
     'nav.organization': 'Organization',
     'nav.assets': 'Legal Assets',
@@ -132,6 +192,9 @@ export const messages: Record<Locale, Record<string, string>> = {
     'nav.contracts': 'Contracts',
     'nav.documents': 'Documents',
     'nav.archives': 'Archives',
+    'nav.documentGovernance': 'Document Governance',
+    'nav.finance': 'Finance & Billing',
+    'nav.admin': 'Admin Console',
     'shell.security': 'Security audit enabled',
     'shell.securityDetail': 'Sensitive actions are traceable',
     'shell.session': 'Secure internal session',
@@ -158,6 +221,51 @@ export const messages: Record<Locale, Record<string, string>> = {
     'page.meetings': 'Meeting Rooms',
     'page.directory': 'Firm Directory',
     'page.offices': 'Global Offices',
+    'page.documentGovernance': 'Document Governance',
+    'page.finance': 'Finance & Billing',
+    'page.admin': 'Admin Console',
+    'p1.governanceHeadline': 'Bring knowledge reuse, full-text search, retention and legal hold into one evidentiary chain.',
+    'p1.financeHeadline': 'Connect engagement terms, time, invoices and collections in a reconcilable finance loop.',
+    'p1.adminHeadline': 'Manage organization, workflow, integrations and data delivery with least privilege.',
+    'p1.search': 'Full-text search',
+    'p1.searchPlaceholder': 'Search filenames or indexed text',
+    'p1.searchAction': 'Search',
+    'p1.templates': 'Document templates',
+    'p1.clauses': 'Clause library',
+    'p1.holds': 'Legal holds',
+    'p1.retention': 'Retention rules',
+    'p1.exports': 'Audited exports',
+    'p1.exportAction': 'Generate document inventory',
+    'p1.exportQueued': 'Export queued for secure processing',
+    'p1.noData': 'No data yet',
+    'p1.loadFailed': 'Failed to load data',
+    'p1.status': 'Status',
+    'p1.version': 'Version',
+    'p1.scope': 'Scope',
+    'p1.risk': 'Risk',
+    'p1.years': 'years',
+    'p1.report': 'Finance overview',
+    'p1.engagements': 'Engagements & fee terms',
+    'p1.timeEntries': 'Time entries',
+    'p1.invoices': 'Invoices & receivables',
+    'p1.wip': 'Approved WIP',
+    'p1.unbilled': 'Unbilled time',
+    'p1.revenue': 'Issued revenue',
+    'p1.receivables': 'Receivables',
+    'p1.collected': 'Collected',
+    'p1.utilization': 'Billable utilization',
+    'p1.amount': 'Amount',
+    'p1.minutes': 'minutes',
+    'p1.outstanding': 'Outstanding',
+    'p1.settings': 'Firm brand & regional settings',
+    'p1.users': 'Users & access',
+    'p1.roles': 'Roles & permissions',
+    'p1.integrations': 'Integration health',
+    'p1.workflowRules': 'Workflow assignment rules',
+    'p1.up': 'Healthy',
+    'p1.down': 'Down',
+    'p1.unknown': 'Not configured',
+    'p1.lastChecked': 'Last checked',
     'headline.dashboard': 'Good morning. Start with what matters most.',
     'headline.matters': 'Every matter defines its own collaboration and access boundary.',
     'headline.parties': 'One party, one trusted profile.',
@@ -234,6 +342,16 @@ function translate(key: string): string {
   return messages[locale.value][key] ?? messages['zh-CN'][key] ?? key
 }
 
+function translateWithParams(
+  key: string,
+  parameters: Record<string, string | number>,
+): string {
+  return Object.entries(parameters).reduce(
+    (value, [name, replacement]) => value.split(`{${name}}`).join(String(replacement)),
+    translate(key),
+  )
+}
+
 function setLocale(next: Locale) {
   locale.value = next
   if (typeof localStorage !== 'undefined') localStorage.setItem('law_oa_locale', next)
@@ -247,9 +365,10 @@ export function useI18n() {
     locale,
     isEnglish: computed(() => locale.value === 'en-US'),
     t: translate,
+    tp: translateWithParams,
     setLocale,
     toggleLocale: () => setLocale(locale.value === 'zh-CN' ? 'en-US' : 'zh-CN'),
   }
 }
 
-export { translate }
+export { translate, translateWithParams }
