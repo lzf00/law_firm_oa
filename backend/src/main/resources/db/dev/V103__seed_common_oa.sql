@@ -21,7 +21,7 @@ VALUES
     ('00000000-0000-0000-0010-000000000002',
      '00000000-0000-0000-0000-000000000001',
      '法槌洽谈室', '12F 西区', 6, '["保密电话", "白板"]'::jsonb)
-ON CONFLICT (organization_id, name) DO NOTHING;
+ON CONFLICT (organization_id, name) WHERE office_id IS NULL DO NOTHING;
 
 INSERT INTO announcements
     (id, organization_id, title, summary, content, category, priority,
