@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="https://zoro.example/law-oa">
+    <process id="expenseApproval" name="费用报销审批" isExecutable="true">
+        <startEvent id="start" name="提交报销"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="managerApproval"/>
+        <userTask id="managerApproval" name="负责人审批"
+                  flowable:candidateGroups="MANAGING_PARTNER"/>
+        <sequenceFlow id="flow2" sourceRef="managerApproval" targetRef="financeReview"/>
+        <userTask id="financeReview" name="财务复核"
+                  flowable:candidateGroups="FINANCE"/>
+        <sequenceFlow id="flow3" sourceRef="financeReview" targetRef="end"/>
+        <endEvent id="end" name="审批通过"/>
+    </process>
+</definitions>

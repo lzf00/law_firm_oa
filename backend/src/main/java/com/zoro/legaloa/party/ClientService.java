@@ -1,0 +1,95 @@
+package com.zoro.legaloa.party;
+
+import com.zoro.legaloa.common.AuditService;
+import com.zoro.legaloa.common.BusinessException;
+import com.zoro.legaloa.identity.RequestActor;
+import com.zoro.legaloa.identity.RequestActorProvider;
+import com.zoro.legaloa.party.ClientController.ClientView;
+import com.zoro.legaloa.party.ClientController.CreateClientRequest;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.http.HttpStatus;
+import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+@Service
+public class ClientService {
+    private final JdbcClient jdbcClient;
+    private final RequestActorProvider actorProvider;
+    private final AuditService auditService;
+
+    public ClientService(
+            JdbcClient jdbcClient,
+            RequestActorProvider actorProvider,
+            AuditService auditService
+    ) {
+        this.jdbcClient = jdbcClient;
+        this.actorProvider = actorProvider;
+        this.auditService = auditService;
+    }
+
+    @Transactional(readOnly = true)
+    public List<ClientView> list() {
+        RequestActor actor = actorProvider.current();
+        return jdbcClient.sql("""
+                        SELECT c.id, c.party_id, c.client_number, p.display_name, p.party_type,
+                               c.owner_user_id, u.display_name AS owner_name, c.status
+                        FROM clients c
+                        JOIN parties p ON p.id = c.party_id
+                        LEFT JOIN users u ON u.id = c.owner_user_id
+                        WHERE p.organization_id = :organizationId
+                          AND p.deleted_at IS NULL AND c.deleted_at IS NULL
+                        ORDER BY c.updated_at DESC
+                        """)
+                .param("organizationId", actor.organizationId())
+                .query(ClientService::map)
+                .list();
+    }
+
+    @Transactional
+    public ClientView create(CreateClientRequest request) {
+        RequestActor actor = actorProvider.current();
+        UUID id = jdbcClient.sql("""
+                        INSERT INTO clients (party_id, client_number, owner_user_id, source)
+                        SELECT p.id, :clientNumber, :ownerUserId, :source
+                        FROM parties p
+                        WHERE p.id = :partyId AND p.organization_id = :organizationId
+                          AND p.deleted_at IS NULL
+                          AND (:noOwner OR EXISTS (
+                              SELECT 1 FROM users u
+                              WHERE u.id = :ownerUserId
+                                AND u.organization_id = :organizationId
+                                AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+                          ))
+                        RETURNING id
+                        """)
+                .param("partyId", request.partyId())
+                .param("clientNumber", request.clientNumber().trim())
+                .param("ownerUserId", request.ownerUserId())
+                .param("noOwner", request.ownerUserId() == null)
+                .param("source", request.source())
+                .param("organizationId", actor.organizationId())
+                .query(UUID.class)
+                .optional()
+                .orElseThrow(() -> new BusinessException(
+                        "CLIENT_CONTEXT_INVALID", "主体或客户负责人无效", HttpStatus.BAD_REQUEST
+                ));
+        auditService.success(actor, "CLIENT_CREATE", "CLIENT", id);
+        return list().stream().filter(item -> item.id().equals(id)).findFirst().orElseThrow();
+    }
+
+    private static ClientView map(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
+        return new ClientView(
+                rs.getObject("id", UUID.class),
+                rs.getObject("party_id", UUID.class),
+                rs.getString("client_number"),
+                rs.getString("display_name"),
+                rs.getString("party_type"),
+                rs.getObject("owner_user_id", UUID.class),
+                rs.getString("owner_name"),
+                rs.getString("status")
+        );
+    }
+}
+

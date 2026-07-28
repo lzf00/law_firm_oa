@@ -1,0 +1,324 @@
+:root {
+  --ink: #14231e;
+  --ink-soft: #34463f;
+  --forest: #183f34;
+  --forest-2: #235a49;
+  --paper: #f2efe7;
+  --paper-light: #faf8f2;
+  --line: #d8d3c7;
+  --brass: #a47d3b;
+  --oxblood: #893f36;
+  --white: #fff;
+  --muted: #727b76;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  font-synthesis: none;
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--paper); }
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+a { color: inherit; text-decoration: none; }
+
+.app-shell { min-height: 100vh; display: grid; grid-template-columns: 252px 1fr; }
+.sidebar {
+  position: fixed; inset: 0 auto 0 0; width: 252px; z-index: 20;
+  display: flex; flex-direction: column; background: var(--ink); color: #e9eee9;
+  border-right: 1px solid rgba(255,255,255,.08);
+}
+.brand { height: 92px; display: flex; align-items: center; gap: 13px; padding: 0 26px; border-bottom: 1px solid rgba(255,255,255,.09); }
+.brand-mark { width: 42px; height: 42px; display: grid; place-items: center; border: 1px solid rgba(205,177,117,.48); color: #d1b16d; }
+.brand-copy { display: flex; flex-direction: column; }
+.brand-copy strong { font-family: "Songti SC", "Noto Serif CJK SC", serif; font-size: 20px; letter-spacing: .18em; }
+.brand-copy span { font: 600 9px/1.5 Georgia, serif; letter-spacing: .18em; color: #a8b6af; }
+.nav { flex: 1; overflow-y: auto; padding: 24px 14px; }
+.nav-group + .nav-group { margin-top: 27px; }
+.nav-heading { margin: 0 13px 9px; font-size: 10px; letter-spacing: .16em; color: #81928a; }
+.nav-item { display: flex; align-items: center; gap: 13px; min-height: 43px; padding: 0 13px; border-radius: 3px; color: #bdc8c2; font-size: 14px; transition: .18s ease; }
+.nav-item:hover { color: white; background: rgba(255,255,255,.05); }
+.nav-item.router-link-active { color: white; background: #254b40; box-shadow: inset 2px 0 #c5a25b; }
+.sidebar-foot { padding: 15px; }
+.security-seal { display: flex; gap: 10px; align-items: flex-start; padding: 14px; border: 1px solid rgba(197,162,91,.25); color: #d0d8d3; }
+.security-seal strong, .security-seal span { display: block; }
+.security-seal strong { font-size: 12px; }
+.security-seal span { margin-top: 3px; font-size: 10px; color: #83938b; }
+.main { grid-column: 2; min-width: 0; }
+.topbar { height: 92px; display: flex; justify-content: space-between; align-items: center; padding: 0 38px; background: rgba(250,248,242,.9); border-bottom: 1px solid var(--line); backdrop-filter: blur(12px); }
+.topbar-left, .topbar-actions, .profile { display: flex; align-items: center; }
+.topbar-left { gap: 12px; }
+.breadcrumb { color: var(--muted); font-size: 11px; letter-spacing: .06em; }
+.topbar h1 { margin: 4px 0 0; font: 700 22px/1.2 "Songti SC", "Noto Serif CJK SC", serif; }
+.topbar-actions { gap: 17px; }
+.icon-button { width: 38px; height: 38px; display: grid; place-items: center; border: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer; }
+.language-switch { min-width: 54px; height: 38px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 10px; border: 1px solid var(--line); background: transparent; color: var(--ink-soft); cursor: pointer; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+.mobile-menu { display: none; }
+.profile { gap: 10px; border-left: 1px solid var(--line); padding-left: 18px; }
+.profile .avatar { width: 36px; height: 36px; display: grid; place-items: center; background: var(--forest); color: white; font: 600 15px "Songti SC", "Noto Serif CJK SC", serif; }
+.profile strong, .profile span { display: block; }
+.profile strong { font-size: 13px; }
+.profile span { margin-top: 2px; font-size: 10px; color: var(--muted); }
+.content { padding: 34px 38px 54px; }
+
+.eyebrow { display: block; margin-bottom: 10px; color: var(--brass); font: 700 10px/1.2 Georgia, serif; letter-spacing: .18em; }
+.hero-panel { position: relative; overflow: hidden; display: flex; justify-content: space-between; align-items: end; padding: 38px 40px; min-height: 194px; background: var(--forest); color: white; }
+.hero-panel::after { content: "§"; position: absolute; right: 25%; top: -48px; font: 700 230px/1 Georgia, serif; color: rgba(255,255,255,.035); }
+.hero-panel h2, .page-intro h2 { margin: 0; font: 700 30px/1.35 "Songti SC", "Noto Serif CJK SC", serif; letter-spacing: .02em; }
+.hero-panel p, .page-intro p { max-width: 650px; margin: 12px 0 0; color: #becbc5; font-size: 14px; line-height: 1.8; }
+.primary-action { position: relative; z-index: 1; min-height: 43px; display: inline-flex; align-items: center; justify-content: center; gap: 9px; padding: 0 18px; border: 1px solid #b9934e; background: #b9934e; color: #151f1b; font-weight: 650; font-size: 13px; cursor: pointer; }
+.primary-action:hover { background: #c8a762; }
+.primary-action:disabled { opacity: .5; cursor: not-allowed; }
+.primary-action.full { width: 100%; }
+.stat-grid { display: grid; grid-template-columns: repeat(4, 1fr); border: 1px solid var(--line); border-top: 0; background: var(--paper-light); }
+.stat-card { position: relative; min-height: 156px; padding: 24px; border-right: 1px solid var(--line); }
+.stat-card:last-child { border-right: 0; }
+.stat-icon { position: absolute; right: 21px; top: 21px; color: var(--forest-2); }
+.stat-icon.danger, small.danger { color: var(--oxblood); }
+.stat-card > span { color: var(--muted); font-size: 12px; }
+.stat-card > strong { display: block; margin: 17px 0 6px; font: 600 34px/1 Georgia, serif; }
+.stat-card small { color: var(--forest-2); font-size: 11px; }
+.dashboard-grid { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(320px, .8fr); gap: 20px; margin-top: 22px; }
+.panel { background: var(--paper-light); border: 1px solid var(--line); }
+.panel-heading { min-height: 85px; display: flex; align-items: center; justify-content: space-between; padding: 18px 24px; border-bottom: 1px solid var(--line); }
+.panel-heading .eyebrow { margin-bottom: 6px; }
+.panel-heading h3 { margin: 0; font: 700 20px "Songti SC", "Noto Serif CJK SC", serif; }
+.panel-heading > a { color: var(--forest-2); font-size: 12px; }
+.case-row { display: grid; grid-template-columns: 100px 1fr auto 18px; align-items: center; gap: 15px; min-height: 76px; padding: 12px 24px; border-bottom: 1px solid #e2ded4; transition: background .16s; }
+.case-row:hover { background: white; }
+.case-number, .mono { color: var(--brass); font: 600 11px Georgia, monospace; letter-spacing: .03em; }
+.case-main strong, .case-main span { display: block; }
+.case-main strong { font-size: 14px; }
+.case-main span { margin-top: 5px; color: var(--muted); font-size: 11px; }
+.status-pill { display: inline-flex; align-items: center; padding: 5px 8px; border: 1px solid #b9c9c1; color: var(--forest-2); background: #edf3ef; font-size: 10px; }
+.timeline { margin: 0; padding: 10px 24px 20px; list-style: none; }
+.timeline li { display: grid; grid-template-columns: 50px 1fr auto; align-items: start; gap: 13px; padding: 18px 0; border-bottom: 1px solid #e2ded4; }
+.timeline time { color: var(--brass); font: 600 13px Georgia, serif; }
+.timeline strong, .timeline span { display: block; }
+.timeline strong { font-size: 13px; }
+.timeline div span { margin-top: 5px; color: var(--muted); font-size: 11px; }
+.priority { padding: 3px 6px; background: #e4ebe7; color: var(--forest-2); font-size: 9px; }
+.priority.high { background: #f0dfdc; color: var(--oxblood); }
+.empty-state { min-height: 170px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 9px; color: var(--muted); text-align: center; font-size: 13px; }
+
+.module-page { max-width: 1500px; margin: 0 auto; }
+.page-intro { display: flex; justify-content: space-between; align-items: end; min-height: 130px; padding-bottom: 27px; }
+.page-intro p { color: var(--muted); }
+.toolbar { min-height: 67px; display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 12px 17px; background: var(--paper-light); border: 1px solid var(--line); border-bottom: 0; }
+.search-box { width: min(390px, 50%); min-height: 40px; display: flex; align-items: center; gap: 9px; padding: 0 13px; background: white; border: 1px solid var(--line); color: var(--muted); }
+.search-box.wide { width: min(560px, 100%); }
+.search-box input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--ink); font-size: 13px; }
+.filter-tabs { display: flex; gap: 2px; }
+.filter-tabs button { min-height: 34px; padding: 0 12px; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; }
+.filter-tabs button.active { background: var(--forest); color: white; }
+.table-panel { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 17px 20px; border-bottom: 1px solid #e1ddd2; text-align: left; font-size: 12px; }
+th { color: var(--muted); background: #eeeae1; font-size: 10px; letter-spacing: .08em; }
+td strong, td small { display: block; }
+td strong { font-size: 13px; }
+td small { margin-top: 4px; color: var(--muted); font-size: 9px; }
+.party-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+.party-card { min-height: 118px; display: grid; grid-template-columns: 44px 1fr auto; gap: 14px; align-items: start; padding: 21px; background: var(--paper-light); border: 1px solid var(--line); }
+.party-icon { width: 42px; height: 42px; display: grid; place-items: center; color: var(--forest-2); background: #e5ebe7; }
+.party-copy strong, .party-copy span, .party-copy small { display: block; }
+.party-copy strong { font: 600 15px "Songti SC", "Noto Serif CJK SC", serif; }
+.party-copy span { margin-top: 5px; color: var(--muted); font-size: 10px; }
+.party-copy small { margin-top: 11px; color: var(--ink-soft); font-size: 10px; }
+.risk-dot { padding: 4px 6px; color: var(--forest-2); border: 1px solid #b9c9c1; font-size: 8px; }
+.conflict-layout { display: grid; grid-template-columns: minmax(320px, .8fr) minmax(360px, 1.2fr); gap: 18px; }
+.conflict-form { position: relative; padding: 30px; }
+.form-number { position: absolute; top: 18px; right: 23px; color: #d8d2c5; font: 600 48px Georgia, serif; }
+.conflict-form label { display: block; margin-bottom: 23px; }
+.conflict-form label > span { display: block; margin-bottom: 8px; font-size: 12px; font-weight: 650; }
+.conflict-form input, .conflict-form select { width: 100%; border: 1px solid var(--line); background: white; color: var(--ink); outline: 0; }
+.conflict-form input { height: 44px; padding: 0 12px; }
+.conflict-form select { min-height: 150px; padding: 9px; }
+.conflict-form label small { display: block; margin-top: 6px; color: var(--muted); font-size: 9px; }
+.result-panel { min-height: 390px; display: flex; flex-direction: column; justify-content: center; align-items: center; padding: 35px; text-align: center; color: var(--muted); }
+.result-panel h3 { margin: 14px 0 5px; font: 700 20px "Songti SC", "Noto Serif CJK SC", serif; color: var(--ink); }
+.result-panel p { max-width: 430px; font-size: 12px; line-height: 1.8; }
+.result-panel.high { border-top: 4px solid var(--oxblood); }
+.result-panel.medium { border-top: 4px solid var(--brass); }
+.result-panel.clear { border-top: 4px solid var(--forest-2); }
+.result-score { color: var(--ink); font: 600 54px Georgia, serif; }
+.conflict-hit { width: 100%; max-width: 520px; margin-top: 10px; padding: 14px; border: 1px solid var(--line); background: white; text-align: left; }
+.conflict-hit strong, .conflict-hit span, .conflict-hit small { display: block; }
+.conflict-hit span { margin-top: 4px; font-size: 11px; }
+.conflict-hit small { margin-top: 5px; color: var(--muted); font-size: 9px; }
+.placeholder-panel { min-height: 390px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+.placeholder-icon { width: 64px; height: 64px; display: grid; place-items: center; color: var(--brass); border: 1px solid var(--line); }
+.placeholder-panel h3 { margin: 20px 0 8px; font: 700 21px "Songti SC", "Noto Serif CJK SC", serif; }
+.placeholder-panel p { color: var(--muted); font-size: 12px; }
+.secure-note { display: flex; align-items: center; gap: 7px; margin-top: 25px; padding: 9px 12px; background: #e7ece8; color: var(--forest-2); font-size: 10px; }
+.deadline-row { min-height: 91px; display: grid; grid-template-columns: 105px minmax(260px, 1fr) 150px auto; gap: 20px; align-items: center; padding: 14px 22px; border-bottom: 1px solid var(--line); }
+.deadline-row:last-child { border-bottom: 0; }
+.deadline-date { padding-left: 13px; border-left: 3px solid var(--forest-2); }
+.deadline-date.urgent { border-left-color: var(--oxblood); }
+.deadline-date strong, .deadline-date span, .deadline-main strong, .deadline-main span, .deadline-meta span, .deadline-meta strong { display: block; }
+.deadline-date strong { font: 600 17px Georgia, serif; }
+.deadline-date span { margin-top: 4px; color: var(--muted); font-size: 9px; }
+.deadline-main strong { font: 600 14px "Songti SC", "Noto Serif CJK SC", serif; }
+.deadline-main span { margin-top: 5px; color: var(--muted); font-size: 10px; }
+.deadline-meta span { color: var(--muted); font-size: 9px; }
+.deadline-meta strong { margin-top: 5px; font-size: 11px; }
+.upload-button input { display: none; }
+.upload-button.disabled { opacity: .5; pointer-events: none; }
+.document-context { min-height: 74px; display: grid; grid-template-columns: minmax(320px, 1fr) 180px 180px; gap: 1px; margin-bottom: 16px; background: var(--line); border: 1px solid var(--line); }
+.document-context > label, .document-context > div { display: flex; align-items: center; gap: 10px; padding: 13px 17px; background: var(--paper-light); }
+.document-context label > span { color: var(--muted); font-size: 10px; }
+.document-context select { flex: 1; min-width: 0; height: 38px; border: 1px solid var(--line); background: white; padding: 0 10px; color: var(--ink); }
+.document-context div { color: var(--forest-2); }
+.document-context div span, .document-context div strong { display: block; font-size: 10px; }
+.document-context div strong { margin-left: auto; color: var(--ink); }
+.table-action { width: 32px; height: 32px; display: grid; place-items: center; border: 1px solid var(--line); background: transparent; color: var(--forest-2); cursor: pointer; }
+.approval-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(330px, .75fr); gap: 18px; }
+.approval-list { padding: 0 22px; }
+.approval-row { min-height: 90px; display: grid; grid-template-columns: 42px 1fr auto; gap: 14px; align-items: center; border-bottom: 1px solid var(--line); }
+.approval-row:last-child { border-bottom: 0; }
+.approval-row.compact-row { grid-template-columns: 1fr auto; }
+.approval-icon { width: 39px; height: 39px; display: grid; place-items: center; color: var(--forest-2); background: #e5ebe7; }
+.approval-row strong, .approval-row span, .approval-row small { display: block; }
+.approval-row strong { font-size: 13px; }
+.approval-row div > span { margin-top: 5px; color: var(--muted); font-size: 10px; }
+.approval-row small { margin-top: 4px; color: var(--muted); font-size: 9px; }
+.table-action.approve { width: auto; padding: 0 10px; display: flex; gap: 6px; }
+.archive-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.archive-card { position: relative; min-height: 194px; padding: 28px 24px 22px; background: var(--paper-light); border: 1px solid var(--line); border-top: 4px solid var(--forest); }
+.archive-card::after { content: ""; position: absolute; top: -4px; right: 20px; width: 54px; height: 12px; background: var(--brass); opacity: .75; }
+.archive-tab { color: var(--forest-2); }
+.archive-card .mono { display: block; margin-top: 18px; }
+.archive-card h3 { margin: 8px 0 7px; font: 700 17px/1.4 "Songti SC", serif; }
+.archive-card p { margin: 0; color: var(--muted); font-size: 10px; }
+.archive-meta { position: absolute; left: 24px; right: 24px; bottom: 20px; display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 10px; }
+.dialog-form { display: grid; gap: 17px; }
+.dialog-form label > span { display: block; margin-bottom: 7px; color: var(--ink-soft); font-size: 11px; }
+.dialog-form input, .dialog-form select, .dialog-form textarea { width: 100%; padding: 0 11px; border: 1px solid var(--line); background: white; color: var(--ink); outline: 0; }
+.dialog-form input, .dialog-form select { height: 42px; }
+.dialog-form textarea { padding-top: 11px; resize: vertical; }
+.secondary-action { min-height: 43px; padding: 0 18px; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
+.secondary-action.compact-action { min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 0 11px; font-size: 11px; }
+.two-column-form { grid-template-columns: 1fr 1fr; }
+.two-column-form .full-field { grid-column: 1 / -1; }
+.announcement-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.announcement-card { min-height: 240px; padding: 24px; background: var(--paper-light); border: 1px solid var(--line); border-top: 4px solid var(--forest); cursor: pointer; }
+.announcement-card.unread { border-top-color: var(--brass); background: white; }
+.announcement-card > svg { margin: 21px 0 5px; color: var(--forest-2); }
+.announcement-card h3 { margin: 9px 0; font: 700 18px/1.45 "Songti SC", serif; }
+.announcement-card p { margin: 0; min-height: 54px; color: var(--muted); font-size: 11px; line-height: 1.75; }
+.announcement-top, .announcement-foot { display: flex; align-items: center; justify-content: space-between; color: var(--muted); font-size: 9px; }
+.announcement-foot { margin-top: 22px; padding-top: 13px; border-top: 1px solid var(--line); }
+.announcement-foot span { display: inline-flex; align-items: center; gap: 5px; }
+.kanban { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; align-items: start; }
+.kanban-column { min-height: 420px; padding: 14px; background: #eae6dc; border: 1px solid var(--line); }
+.kanban-column > header { display: flex; justify-content: space-between; padding: 5px 5px 15px; font-size: 12px; }
+.task-card { margin-bottom: 11px; padding: 17px; background: var(--paper-light); border: 1px solid var(--line); }
+.task-card > div, .task-card footer { display: flex; justify-content: space-between; align-items: center; color: var(--muted); font-size: 9px; }
+.task-card h3 { margin: 15px 0 8px; font-size: 14px; }
+.task-card p { min-height: 34px; margin: 0 0 14px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.task-card footer { padding-top: 12px; border-top: 1px solid var(--line); }
+.task-card .compact-action { width: 100%; margin-top: 13px; }
+.kanban-empty { min-height: 150px; display: flex; flex-direction: column; gap: 8px; align-items: center; justify-content: center; color: var(--muted); font-size: 11px; }
+.expense-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.expense-card { padding: 24px; }
+.expense-amount { margin-bottom: 20px; color: var(--forest); font: 600 28px Georgia, serif; }
+.expense-card h3 { margin: 9px 0; font: 700 17px "Songti SC", serif; }
+.expense-card p { min-height: 34px; color: var(--muted); font-size: 10px; line-height: 1.7; }
+.expense-meta { display: flex; align-items: center; gap: 8px; margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); color: var(--muted); font-size: 9px; }
+.expense-meta .status-pill { margin-left: auto; }
+.expense-card .compact-action { margin-top: 14px; width: 100%; }
+.room-strip { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin-bottom: 18px; }
+.room-card { display: grid; grid-template-columns: 42px 1fr auto; align-items: center; gap: 13px; padding: 19px; background: var(--forest); color: white; }
+.room-card > svg { color: #d1b16d; }
+.room-card strong, .room-card div span { display: block; }
+.room-card div span { margin-top: 5px; color: #b7c4be; font-size: 9px; }
+.room-card > span { display: flex; gap: 5px; align-items: center; color: #cad4cf; font-size: 10px; }
+.meeting-row { min-height: 78px; display: grid; grid-template-columns: 80px 1fr auto auto; gap: 16px; align-items: center; padding: 12px 22px; border-bottom: 1px solid var(--line); }
+.meeting-row time strong, .meeting-row time span, .meeting-row div strong, .meeting-row div span { display: block; }
+.meeting-row time strong { font: 600 16px Georgia, serif; color: var(--brass); }
+.meeting-row time span, .meeting-row div span { margin-top: 4px; color: var(--muted); font-size: 9px; }
+.meeting-row div strong { font-size: 13px; }
+.directory-layout { display: grid; grid-template-columns: 280px 1fr; gap: 18px; }
+.department-list { padding: 10px 21px 22px; }
+.department-list div { display: flex; justify-content: space-between; padding: 14px 2px; border-bottom: 1px solid var(--line); font-size: 12px; }
+.department-list strong { color: var(--brass); }
+.directory-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+.person-card { min-height: 112px; display: grid; grid-template-columns: 46px 1fr auto; gap: 13px; align-items: center; padding: 18px; background: var(--paper-light); border: 1px solid var(--line); }
+.person-avatar { width: 44px; height: 44px; display: grid; place-items: center; background: var(--forest); color: white; font-family: "Songti SC", serif; }
+.person-card h3 { margin: 0; font: 700 15px "Songti SC", serif; }
+.person-card span, .person-card small { display: block; margin-top: 5px; color: var(--muted); font-size: 9px; }
+.person-card a { color: var(--forest-2); }
+.office-intro { border-bottom: 1px solid var(--line); margin-bottom: 28px; }
+.network-mark { display: flex; align-items: center; gap: 11px; padding: 14px 18px; border: 1px solid var(--line); color: var(--forest-2); background: var(--paper-light); font: 700 10px Georgia, serif; letter-spacing: .12em; }
+.office-region { margin-bottom: 34px; }
+.office-region > header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 13px; padding-bottom: 9px; border-bottom: 1px solid var(--line); }
+.office-region > header h3 { margin: 0; font: 700 16px "Songti SC", Georgia, serif; }
+.office-region > header strong { color: var(--brass); font: 500 22px Georgia, serif; }
+.office-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.office-card { position: relative; min-height: 265px; padding: 23px; overflow: hidden; background: var(--paper-light); border: 1px solid var(--line); }
+.office-card::after { content: ""; position: absolute; width: 90px; height: 90px; right: -45px; bottom: -45px; border: 1px solid rgba(164, 125, 59, .22); border-radius: 50%; }
+.office-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.office-code { color: var(--brass); font: 700 11px Georgia, serif; letter-spacing: .18em; }
+.country-code { padding: 4px 7px; color: var(--muted); border: 1px solid var(--line); font: 700 9px monospace; }
+.office-card > svg { color: var(--forest-2); }
+.office-card h3 { margin: 12px 0 8px; font: 700 18px/1.35 "Songti SC", Georgia, serif; }
+.office-card > p { min-height: 34px; display: flex; gap: 7px; align-items: flex-start; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
+.office-card > p svg { flex: 0 0 auto; margin-top: 1px; }
+.office-card dl { margin: 19px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
+.office-card dl div { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 8px; }
+.office-card dt { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 9px; }
+.office-card dd { margin: 0; color: var(--ink-soft); font: 600 9px/1.3 monospace; }
+.auth-screen { min-height: 100vh; display: grid; place-items: center; padding: 24px; background: var(--ink); }
+.auth-card { width: min(460px, 100%); padding: 48px; background: var(--paper-light); border-top: 4px solid var(--brass); text-align: center; }
+.auth-mark { width: 58px; height: 58px; display: grid; place-items: center; margin: 0 auto 25px; color: var(--forest-2); border: 1px solid var(--line); }
+.auth-card h1 { margin: 0; font: 700 26px "Songti SC", serif; }
+.auth-card p { margin: 14px 0 0; color: var(--muted); font-size: 12px; line-height: 1.8; }
+.auth-card .secure-note { justify-content: center; }
+.spin { animation: spin 1s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+@media (max-width: 1100px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); }
+  .stat-card:nth-child(2) { border-right: 0; }
+  .stat-card:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+  .dashboard-grid, .conflict-layout { grid-template-columns: 1fr; }
+  .approval-grid { grid-template-columns: 1fr; }
+  .party-grid { grid-template-columns: repeat(2, 1fr); }
+  .archive-grid { grid-template-columns: repeat(2, 1fr); }
+  .announcement-grid, .expense-grid { grid-template-columns: repeat(2, 1fr); }
+  .directory-layout { grid-template-columns: 1fr; }
+  .office-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 760px) {
+  .app-shell { display: block; }
+  .sidebar { transform: translateX(-100%); transition: transform .2s ease; }
+  .is-compact .sidebar { transform: translateX(0); box-shadow: 14px 0 40px rgba(0,0,0,.24); }
+  .main { width: 100%; }
+  .topbar { height: 76px; padding: 0 18px; }
+  .mobile-menu { display: grid; }
+  .profile div, .breadcrumb { display: none; }
+  .content { padding: 22px 16px 40px; }
+  .hero-panel { min-height: 240px; padding: 28px; flex-direction: column; align-items: flex-start; gap: 26px; }
+  .hero-panel h2, .page-intro h2 { font-size: 24px; }
+  .stat-grid { grid-template-columns: 1fr 1fr; }
+  .stat-card { min-height: 135px; padding: 18px; }
+  .page-intro { align-items: flex-start; flex-direction: column; gap: 20px; }
+  .toolbar { align-items: stretch; flex-direction: column; }
+  .search-box { width: 100%; }
+  .filter-tabs { overflow-x: auto; }
+  .party-grid { grid-template-columns: 1fr; }
+  .archive-grid { grid-template-columns: 1fr; }
+  .announcement-grid, .expense-grid, .kanban, .room-strip, .directory-grid { grid-template-columns: 1fr; }
+  .office-grid { grid-template-columns: 1fr; }
+  .two-column-form { grid-template-columns: 1fr; }
+  .two-column-form .full-field { grid-column: auto; }
+  .meeting-row { grid-template-columns: 70px 1fr auto; }
+  .meeting-row .compact-action { grid-column: 2 / -1; }
+  .case-row { grid-template-columns: 84px 1fr auto; }
+  .case-row > svg { display: none; }
+  th, td { padding: 14px 12px; white-space: nowrap; }
+  .deadline-row { grid-template-columns: 82px 1fr auto; gap: 12px; }
+  .deadline-meta { display: none; }
+  .document-context { grid-template-columns: 1fr; }
+}

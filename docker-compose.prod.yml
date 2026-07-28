@@ -1,0 +1,64 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:size=256m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      DB_URL: ${DB_URL}
+      DB_USERNAME: ${DB_USERNAME}
+      DB_PASSWORD: ${DB_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      STORAGE_ENDPOINT: ${STORAGE_ENDPOINT}
+      STORAGE_PUBLIC_ENDPOINT: ${STORAGE_PUBLIC_ENDPOINT}
+      STORAGE_REGION: ${STORAGE_REGION:-us-east-1}
+      STORAGE_ACCESS_KEY: ${STORAGE_ACCESS_KEY}
+      STORAGE_SECRET_KEY: ${STORAGE_SECRET_KEY}
+      STORAGE_BUCKET: ${STORAGE_BUCKET:-law-oa-private}
+      DINGTALK_CLIENT_ID: ${DINGTALK_CLIENT_ID}
+      DINGTALK_CLIENT_SECRET: ${DINGTALK_CLIENT_SECRET}
+      DINGTALK_REDIRECT_URI: ${DINGTALK_REDIRECT_URI}
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health/readiness | grep -q UP"]
+      interval: 20s
+      timeout: 5s
+      retries: 6
+      start_period: 45s
+    expose:
+      - "8080"
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2g
+        reservations:
+          memory: 768m
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NGINX_CONFIG: nginx.prod.conf
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /var/cache/nginx:size=64m
+      - /var/run:size=16m
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 256m

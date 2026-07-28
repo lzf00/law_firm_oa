@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="https://zoro.example/law-oa">
+    <process id="sealRequest" name="用印审批" isExecutable="true">
+        <startEvent id="start" name="提交用印"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="adminReview"/>
+        <userTask id="adminReview" name="行政复核"
+                  flowable:candidateGroups="ADMINISTRATION"/>
+        <sequenceFlow id="flow2" sourceRef="adminReview" targetRef="custodianConfirm"/>
+        <userTask id="custodianConfirm" name="印章保管人确认"
+                  flowable:candidateGroups="SEAL_CUSTODIAN"/>
+        <sequenceFlow id="flow3" sourceRef="custodianConfirm" targetRef="end"/>
+        <endEvent id="end" name="用印完成"/>
+    </process>
+</definitions>
+

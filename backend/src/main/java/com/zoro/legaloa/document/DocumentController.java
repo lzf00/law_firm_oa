@@ -1,0 +1,93 @@
+package com.zoro.legaloa.document;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
+
+@RestController
+@RequestMapping("/api/documents")
+public class DocumentController {
+    private final DocumentService documentService;
+
+    public DocumentController(DocumentService documentService) {
+        this.documentService = documentService;
+    }
+
+    @GetMapping
+    List<DocumentView> list(
+            @RequestParam(required = false) UUID matterId,
+            @RequestParam(required = false) UUID contractId
+    ) {
+        return documentService.list(matterId, contractId);
+    }
+
+    @PostMapping("/uploads")
+    UploadTicket initiate(@Valid @RequestBody InitiateUploadRequest request) {
+        return documentService.initiate(request);
+    }
+
+    @PostMapping("/uploads/{uploadId}/complete")
+    DocumentView complete(@PathVariable UUID uploadId) {
+        return documentService.complete(uploadId);
+    }
+
+    @PostMapping("/{documentId}/versions/{versionId}/download-url")
+    DownloadTicket download(
+            @PathVariable UUID documentId,
+            @PathVariable UUID versionId
+    ) {
+        return documentService.download(documentId, versionId);
+    }
+
+    public record InitiateUploadRequest(
+            UUID documentId,
+            UUID matterId,
+            UUID contractId,
+            @NotBlank @Size(max = 300) String logicalName,
+            @NotBlank @Size(max = 80) String documentType,
+            @NotBlank @Size(max = 300) String originalFilename,
+            @NotBlank @Size(max = 150) String contentType,
+            @Min(1) @Max(209715200) long sizeBytes,
+            @NotBlank @Pattern(regexp = "^[0-9a-fA-F]{64}$") String sha256
+    ) {}
+
+    public record UploadTicket(
+            UUID uploadId,
+            String uploadUrl,
+            String method,
+            String requiredContentType,
+            Instant expiresAt
+    ) {}
+
+    public record DownloadTicket(String downloadUrl, Instant expiresAt) {}
+
+    public record DocumentView(
+            UUID id,
+            UUID matterId,
+            UUID contractId,
+            String logicalName,
+            String documentType,
+            String confidentialityLevel,
+            UUID currentVersionId,
+            Integer versionNumber,
+            String versionStatus,
+            String signatureStatus,
+            String originalFilename,
+            long sizeBytes,
+            Instant createdAt
+    ) {}
+}
+

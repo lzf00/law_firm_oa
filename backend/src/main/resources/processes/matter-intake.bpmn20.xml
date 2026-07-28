@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL"
+             xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+             xmlns:flowable="http://flowable.org/bpmn"
+             targetNamespace="https://zoro.example/law-oa">
+    <process id="matterIntake" name="案件立案审批" isExecutable="true">
+        <startEvent id="start" name="提交立案"/>
+        <sequenceFlow id="flow1" sourceRef="start" targetRef="conflictReview"/>
+        <userTask id="conflictReview" name="利益冲突复核"
+                  flowable:candidateGroups="CONFLICT_REVIEWER"/>
+        <sequenceFlow id="flow2" sourceRef="conflictReview" targetRef="partnerApproval"/>
+        <userTask id="partnerApproval" name="合伙人审批"
+                  flowable:candidateGroups="MANAGING_PARTNER"/>
+        <sequenceFlow id="flow3" sourceRef="partnerApproval" targetRef="end"/>
+        <endEvent id="end" name="立案完成"/>
+    </process>
+</definitions>
+
