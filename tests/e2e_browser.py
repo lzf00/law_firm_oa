@@ -173,6 +173,47 @@ def main() -> None:
         page.get_by_text("合同已保存").wait_for()
         contract_dialog.wait_for(state="hidden")
         page.get_by_text(contract_title, exact=True).wait_for()
+        contract_row = page.locator("tbody tr").filter(has_text=contract_title)
+        contract_row.get_by_role("button", name="送审", exact=True).click()
+        page.get_by_text("合同评审已发起").wait_for()
+        contracts_response = page.request.get(
+            f"{BASE_URL}/api/contracts",
+            headers={"X-Dev-User": "admin"},
+        )
+        assert contracts_response.ok, "无法读取浏览器新建合同"
+        contract_id = next(
+            item["id"] for item in contracts_response.json()
+            if item["title"] == contract_title
+        )
+
+        page.get_by_role("link", name="审批中心", exact=True).click()
+        approval_task = page.locator("article.task-row").filter(
+            has_text=f"CONTRACT:{contract_id}"
+        )
+        approval_task.wait_for()
+        approval_task.get_by_role("button", name="驳回", exact=True).click()
+        approval_dialog = page.get_by_role("dialog")
+        approval_dialog.get_by_role("button", name="驳回审批", exact=True).click()
+        page.get_by_text("驳回必须填写原因").wait_for()
+        page.keyboard.press("Escape")
+        approval_dialog.wait_for(state="hidden")
+        approval_task.get_by_role("button", name="转交", exact=True).click()
+        transfer_dialog = page.get_by_role("dialog")
+        transfer_select = page.get_by_test_id("transfer-target")
+        page.wait_for_function(
+            "() => document.querySelector('[data-testid=\"transfer-target\"]')?.options.length > 1"
+        )
+        assert transfer_select.locator("option").count() > 1, (
+            "审批转交未返回符合业务访问范围的候选人"
+        )
+        page.keyboard.press("Escape")
+        transfer_dialog.wait_for(state="hidden")
+        approval_task.get_by_role("button", name="通过", exact=True).click()
+        approval_dialog = page.get_by_role("dialog")
+        approval_dialog.locator("textarea").fill("浏览器端审批中心通过验收")
+        approval_dialog.get_by_role("button", name="通过审批", exact=True).click()
+        page.get_by_text("审批已通过").wait_for()
+        approval_dialog.wait_for(state="hidden")
 
         page.get_by_role("link", name="期限管理", exact=True).click()
         page.get_by_role("button", name="新建期限", exact=True).click()
@@ -195,6 +236,19 @@ def main() -> None:
         page.get_by_role("heading", name="关键期限", exact=True).wait_for()
         page.get_by_text(deadline_title, exact=True).wait_for()
         page.get_by_text(contract_title, exact=True).wait_for()
+        page.get_by_role("button", name="编辑资料", exact=True).click()
+        edit_matter_dialog = page.get_by_role("dialog")
+        edit_matter_dialog.locator("textarea").fill("浏览器端案件资料编辑验收")
+        edit_matter_dialog.get_by_role("button", name="保存案件", exact=True).click()
+        page.locator(".el-message").filter(has_text="案件资料已更新").wait_for()
+        edit_matter_dialog.wait_for(state="hidden")
+        page.get_by_text("浏览器端案件资料编辑验收", exact=True).wait_for()
+        page.get_by_role("button", name="确认立案", exact=True).click()
+        lifecycle_dialog = page.get_by_role("dialog")
+        lifecycle_dialog.locator("textarea").fill("冲突检索完成，浏览器验收确认立案")
+        lifecycle_dialog.get_by_role("button", name="确认变更", exact=True).click()
+        page.get_by_text("案件状态已更新").wait_for()
+        page.get_by_text("ACTIVE", exact=True).first.wait_for()
         page.screenshot(path=RESULTS / "matter-workspace.png", full_page=True)
 
         page.get_by_role("link", name="公告中心", exact=True).click()
@@ -219,10 +273,36 @@ def main() -> None:
         page.get_by_role("button", name="新建任务").click()
         task_title = f"浏览器验收任务-{int(time())}"
         page.get_by_placeholder("明确、可验收的任务名称").fill(task_title)
+        page.get_by_role("dialog").locator("select").nth(0).select_option(
+            "00000000-0000-0000-0002-000000000001"
+        )
         page.get_by_placeholder("说明交付物与验收标准").fill("完成页面与接口联动验证")
         page.get_by_role("button", name="确认分派").click()
         page.get_by_text("协作任务已分派").wait_for()
         page.get_by_text(task_title).wait_for()
+        for _ in range(40):
+            notification_response = page.request.get(
+                f"{BASE_URL}/api/notifications?page=1&size=30",
+                headers={"X-Dev-User": "admin"},
+            )
+            if notification_response.ok and any(
+                task_title in f"{item['title']} {item['content']}"
+                for item in notification_response.json()["items"]
+            ):
+                break
+            page.wait_for_timeout(500)
+        else:
+            raise AssertionError("协作任务通知未进入收件箱")
+        page.get_by_role("button", name="通知", exact=True).click()
+        notification_drawer = page.get_by_role("dialog", name="通知")
+        notification_drawer.get_by_role("heading", name="通知中心", exact=True).wait_for()
+        task_notification = notification_drawer.locator(
+            "button.notification-item"
+        ).filter(has_text=task_title)
+        task_notification.wait_for()
+        task_notification.click()
+        notification_drawer.wait_for(state="hidden")
+        page.get_by_role("heading", name="把口头交办，变成有负责人和期限的协作。").wait_for()
 
         page.get_by_role("link", name="电子卷宗", exact=True).click()
         page.get_by_role("button", name="新建卷宗").click()
@@ -297,8 +377,10 @@ def main() -> None:
     print("✓ 12 个全球办公室、时区与当地币种展示")
     print("✓ 分所成员临时授权、成员列表与撤销操作")
     print("✓ 浏览器创建利雅得英文跨境案件")
-    print("✓ 案件工作台聚合展示团队、期限与合同")
+    print("✓ 案件工作台聚合、资料编辑与生命周期流转")
+    print("✓ 审批通过、驳回必填与转交候选人交互")
     print("✓ 上海办公室公告浏览器端定向发布")
+    print("✓ 通知抽屉未读展示、已读与可信深链")
     print("✓ 协作任务浏览器端创建")
     print("✓ 电子卷宗浏览器端创建、案件关联与文件编目")
     print("✓ 文件浏览器直传（含 CORS）")

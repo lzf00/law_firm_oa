@@ -10,6 +10,8 @@ import com.zoro.legaloa.identity.OrganizationSyncController.OrganizationSyncRequ
 import com.zoro.legaloa.matter.ContractController.CreateContractRequest;
 import com.zoro.legaloa.matter.DeadlineController.CreateDeadlineRequest;
 import com.zoro.legaloa.matter.MatterController.CreateMatterRequest;
+import com.zoro.legaloa.matter.MatterController.MatterLifecycleRequest;
+import com.zoro.legaloa.matter.MatterController.UpdateMatterRequest;
 import com.zoro.legaloa.office.AnnouncementController.CreateAnnouncementRequest;
 import com.zoro.legaloa.office.ExpenseController.CreateExpenseRequest;
 import com.zoro.legaloa.office.ExpenseController.ExpenseItemRequest;
@@ -77,6 +79,12 @@ class RequestValidationTest {
                 null, null, null, ID, "CN", "China",
                 "en-US", "CNY", List.of(), List.of()
         ));
+        assertInvalid(new UpdateMatterRequest(
+                "Matter", "LITIGATION", ID, LocalDate.now(),
+                null, null, null, ID, "cn", "China", "fr-FR", "rmb"
+        ), "countryCode");
+        assertInvalid(new MatterLifecycleRequest("ACTIVE", " "), "reason");
+        assertInvalid(new MatterLifecycleRequest("DELETED", "Invalid target"), "targetStatus");
     }
 
     @Test

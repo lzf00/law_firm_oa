@@ -24,7 +24,9 @@ import {
   Scale,
   SearchCheck,
   UsersRound,
+  X,
 } from '@lucide/vue'
+import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
 import type { CurrentUser } from '@/api/types'
 import { useI18n } from '@/i18n'
@@ -34,12 +36,30 @@ const route = useRoute()
 const router = useRouter()
 const user = ref<CurrentUser | null>(null)
 const compact = ref(false)
+const notificationOpen = ref(false)
+const notificationLoading = ref(false)
+const unreadCount = ref(0)
+const notifications = ref<NotificationItem[]>([])
 const { locale, t, toggleLocale } = useI18n()
 const { tenant, shortName } = useTenant()
 const title = computed(() => t(String(route.meta.titleKey ?? 'page.dashboard')))
 const officeName = computed(() => locale.value === 'en-US'
   ? user.value?.officeNameEn
   : user.value?.officeNameZh)
+
+interface NotificationItem {
+  id: string
+  notificationType: string
+  title: string
+  content: string
+  resourceType?: string
+  resourceId?: string
+  actionUrl?: string
+  priority: string
+  status: 'UNREAD' | 'READ' | 'ARCHIVED'
+  readAt?: string
+  createdAt: string
+}
 
 watch(() => route.path, () => {
   compact.value = false
@@ -85,8 +105,82 @@ const navGroups = [
 async function loadCurrentUser() {
   try {
     user.value = (await http.get<CurrentUser>('/me')).data
+    await loadUnreadCount()
   } catch {
     user.value = null
+  }
+}
+
+async function loadUnreadCount() {
+  try {
+    unreadCount.value = (await http.get<{ count: number }>('/notifications/unread-count')).data.count
+  } catch {
+    unreadCount.value = 0
+  }
+}
+
+async function openNotifications() {
+  notificationOpen.value = true
+  notificationLoading.value = true
+  try {
+    const response = await http.get<{ items: NotificationItem[] }>('/notifications', {
+      params: { page: 1, size: 30 },
+    })
+    notifications.value = response.data.items
+    await loadUnreadCount()
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : (
+      locale.value === 'en-US' ? 'Failed to load notifications' : '通知加载失败'
+    ))
+  } finally {
+    notificationLoading.value = false
+  }
+}
+
+function safeNotificationTarget(actionUrl?: string) {
+  if (!actionUrl || !actionUrl.startsWith('/') || actionUrl.startsWith('//')) return null
+  const parsed = new URL(actionUrl, window.location.origin)
+  if (parsed.origin !== window.location.origin) return null
+  if (parsed.pathname === '/workflows') return `/approvals${parsed.search}`
+  const allowed = [
+    '/matters', '/approvals', '/tasks', '/announcements', '/deadlines',
+    '/contracts', '/documents', '/archives', '/expenses', '/leave', '/meetings',
+  ]
+  return allowed.some((prefix) => parsed.pathname === prefix || parsed.pathname.startsWith(`${prefix}/`))
+    ? `${parsed.pathname}${parsed.search}${parsed.hash}`
+    : null
+}
+
+async function openNotification(item: NotificationItem) {
+  try {
+    if (item.status === 'UNREAD') {
+      await http.patch(`/notifications/${item.id}/read`)
+      item.status = 'READ'
+      unreadCount.value = Math.max(0, unreadCount.value - 1)
+    }
+    const target = safeNotificationTarget(item.actionUrl)
+    if (!target) {
+      ElMessage.warning(locale.value === 'en-US'
+        ? 'The target is unavailable or the link is not trusted.'
+        : '目标已不可用，或通知链接不在可信范围内。')
+      return
+    }
+    if (item.resourceType === 'MATTER' && item.resourceId) {
+      try {
+        await http.get(`/matters/${item.resourceId}`)
+      } catch {
+        ElMessage.warning(locale.value === 'en-US'
+          ? 'You no longer have access to this matter.'
+          : '你已无权访问该案件，通知仍保留供审计。')
+        return
+      }
+    }
+    notificationOpen.value = false
+    await router.push(target)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : (
+      locale.value === 'en-US' ? 'Could not open notification' : '无法打开通知'
+    ))
   }
 }
 
@@ -111,6 +205,9 @@ async function logout() {
   sessionStorage.removeItem('law_oa_demo_entered')
   clearBrowserSessionAuthentication()
   user.value = null
+  notificationOpen.value = false
+  unreadCount.value = 0
+  notifications.value = []
   await router.replace('/login')
 }
 </script>
@@ -175,7 +272,10 @@ async function logout() {
             <Languages :size="17" />
             <span>{{ locale === 'zh-CN' ? 'EN' : '中文' }}</span>
           </button>
-          <button class="icon-button" :aria-label="t('shell.notifications')"><Bell :size="19" /></button>
+          <button class="icon-button notification-button" :aria-label="t('shell.notifications')" @click="openNotifications">
+            <Bell :size="19" />
+            <span v-if="unreadCount" class="notification-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
+          </button>
           <div class="profile">
             <span class="avatar">{{ user?.displayName?.slice(0, 1) ?? '管' }}</span>
             <div>
@@ -193,5 +293,59 @@ async function logout() {
         <RouterView />
       </div>
     </main>
+    <Transition name="drawer">
+      <div v-if="notificationOpen" class="notification-layer" @click.self="notificationOpen = false">
+        <aside class="notification-drawer" role="dialog" aria-modal="true" :aria-label="t('shell.notifications')">
+          <header>
+            <div><span class="eyebrow">INBOX</span><h2>{{ locale === 'en-US' ? 'Notifications' : '通知中心' }}</h2></div>
+            <button class="icon-button" :aria-label="locale === 'en-US' ? 'Close notifications' : '关闭通知'" @click="notificationOpen = false"><X :size="18" /></button>
+          </header>
+          <div v-if="notificationLoading" class="empty-state">{{ locale === 'en-US' ? 'Loading…' : '正在加载通知…' }}</div>
+          <div v-else-if="notifications.length" class="notification-list">
+            <button
+              v-for="item in notifications"
+              :key="item.id"
+              class="notification-item"
+              :class="{ unread: item.status === 'UNREAD' }"
+              @click="openNotification(item)"
+            >
+              <span class="notification-dot" />
+              <span class="notification-copy">
+                <strong>{{ item.title }}</strong>
+                <span>{{ item.content }}</span>
+                <small>{{ new Date(item.createdAt).toLocaleString(locale) }} · {{ item.priority }}</small>
+              </span>
+            </button>
+          </div>
+          <div v-else class="empty-state">
+            <Bell :size="30" />
+            <strong>{{ locale === 'en-US' ? 'No notifications' : '暂无通知' }}</strong>
+          </div>
+        </aside>
+      </div>
+    </Transition>
   </div>
 </template>
+
+<style scoped>
+.notification-button { position: relative; }
+.notification-badge { position: absolute; top: -6px; right: -7px; min-width: 18px; height: 18px; display: grid; place-items: center; padding: 0 4px; border: 2px solid var(--paper-light); border-radius: 10px; background: var(--oxblood); color: white; font: 700 8px/1 sans-serif; }
+.notification-layer { position: fixed; inset: 0; z-index: 80; background: rgba(20,35,30,.34); }
+.notification-drawer { position: absolute; inset: 0 0 0 auto; width: min(440px, 96vw); display: flex; flex-direction: column; background: var(--paper-light); box-shadow: -18px 0 50px rgba(20,35,30,.18); }
+.notification-drawer > header { min-height: 92px; display: flex; align-items: center; justify-content: space-between; padding: 20px 24px; border-bottom: 1px solid var(--line); }
+.notification-drawer h2 { margin: 0; font: 700 22px "Songti SC", serif; }
+.notification-list { overflow-y: auto; }
+.notification-item { width: 100%; display: grid; grid-template-columns: 8px 1fr; gap: 12px; padding: 18px 22px; border: 0; border-bottom: 1px solid var(--line); background: transparent; color: var(--ink); text-align: left; cursor: pointer; }
+.notification-item:hover { background: white; }
+.notification-item.unread { background: #f6f1e5; }
+.notification-dot { width: 7px; height: 7px; margin-top: 5px; border-radius: 50%; background: transparent; }
+.notification-item.unread .notification-dot { background: var(--brass); }
+.notification-copy strong, .notification-copy span, .notification-copy small { display: block; }
+.notification-copy strong { font-size: 13px; }
+.notification-copy > span { margin-top: 6px; color: var(--ink-soft); font-size: 10px; line-height: 1.65; }
+.notification-copy small { margin-top: 8px; color: var(--muted); font-size: 8px; }
+.drawer-enter-active, .drawer-leave-active { transition: opacity .18s ease; }
+.drawer-enter-active .notification-drawer, .drawer-leave-active .notification-drawer { transition: transform .18s ease; }
+.drawer-enter-from, .drawer-leave-to { opacity: 0; }
+.drawer-enter-from .notification-drawer, .drawer-leave-to .notification-drawer { transform: translateX(100%); }
+</style>

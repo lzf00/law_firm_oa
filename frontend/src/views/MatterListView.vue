@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { BriefcaseBusiness, Plus, Search } from '@lucide/vue'
 import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
@@ -12,6 +12,7 @@ const offices = ref<Office[]>([])
 const users = ref<Array<{ id: string; displayName: string }>>([])
 const loading = ref(false)
 const query = ref('')
+const activeStatus = ref('')
 const dialogVisible = ref(false)
 const saving = ref(false)
 const { locale } = useI18n()
@@ -28,26 +29,45 @@ const form = reactive({
   billingCurrency: '',
 })
 const selectedOffice = computed(() => offices.value.find((office) => office.id === form.officeId))
+const statusFilters = computed(() => [
+  { value: '', label: locale.value === 'en-US' ? 'All' : '全部' },
+  { value: 'ACTIVE', label: locale.value === 'en-US' ? 'Active' : '在办' },
+  { value: 'CONFLICT_REVIEW', label: locale.value === 'en-US' ? 'Intake' : '待立案' },
+  { value: 'ARCHIVED', label: locale.value === 'en-US' ? 'Archived' : '已归档' },
+])
+let searchTimer: number | undefined
 
-async function load() {
+async function loadMatters() {
   loading.value = true
   try {
-    const [matterResult, officeResult, userResult, meResult] = await Promise.all([
-      http.get<Matter[]>('/matters'),
+    matters.value = (await http.get<Matter[]>('/matters', {
+      params: {
+        status: activeStatus.value || undefined,
+        query: query.value.trim() || undefined,
+      },
+    })).data
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '案件加载失败')
+  } finally {
+    loading.value = false
+  }
+}
+
+async function load() {
+  try {
+    const [officeResult, userResult, meResult] = await Promise.all([
       http.get<Office[]>('/offices'),
       http.get<Array<{ id: string; displayName: string }>>('/organization/users'),
       http.get<CurrentUser>('/me'),
     ])
-    matters.value = matterResult.data
     offices.value = officeResult.data
     users.value = userResult.data
     if (!form.responsibleUserId) form.responsibleUserId = meResult.data.userId
     if (!form.officeId) selectOffice(offices.value[0]?.id ?? '')
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : '案件加载失败')
-  } finally {
-    loading.value = false
   }
+  await loadMatters()
 }
 
 function selectOffice(officeId: string) {
@@ -88,6 +108,11 @@ async function createMatter() {
 }
 
 onMounted(load)
+watch([query, activeStatus], () => {
+  window.clearTimeout(searchTimer)
+  searchTimer = window.setTimeout(loadMatters, query.value ? 280 : 0)
+})
+onBeforeUnmount(() => window.clearTimeout(searchTimer))
 </script>
 
 <template>
@@ -107,7 +132,12 @@ onMounted(load)
         <input v-model="query" placeholder="搜索案号、案件名称或承办律师" />
       </label>
       <div class="filter-tabs">
-        <button class="active">全部</button><button>在办</button><button>待立案</button><button>已归档</button>
+        <button
+          v-for="filter in statusFilters"
+          :key="filter.value"
+          :class="{ active: activeStatus === filter.value }"
+          @click="activeStatus = filter.value"
+        >{{ filter.label }}</button>
       </div>
     </div>
 
@@ -119,7 +149,7 @@ onMounted(load)
         </thead>
         <tbody>
           <tr
-            v-for="matter in matters.filter((item) => `${item.matterNumber}${item.title}${item.responsibleName}`.toLowerCase().includes(query.toLowerCase()))"
+            v-for="matter in matters"
             :key="matter.id"
             class="clickable-row"
             tabindex="0"

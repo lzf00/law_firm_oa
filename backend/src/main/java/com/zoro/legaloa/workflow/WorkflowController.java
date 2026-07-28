@@ -64,6 +64,11 @@ public class WorkflowController {
         return workflowService.transfer(taskId, request, idempotencyKey);
     }
 
+    @GetMapping("/tasks/{taskId}/transfer-targets")
+    List<TransferTargetView> transferTargets(@PathVariable String taskId) {
+        return workflowService.transferTargets(taskId);
+    }
+
     @PostMapping("/tasks/{taskId}/remind")
     void remind(@PathVariable String taskId) {
         workflowService.remind(taskId);
@@ -85,6 +90,8 @@ public class WorkflowController {
             @NotNull UUID targetUserId,
             @Size(max = 500) String comment
     ) {}
+
+    public record TransferTargetView(UUID userId, String username, String displayName) {}
 
     public record WorkflowInstanceView(
             UUID id,

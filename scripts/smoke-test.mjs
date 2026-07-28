@@ -282,6 +282,66 @@ await check('案件立案与承办成员', async () => {
   assert(createdMatter.summary.billingCurrency === 'SAR', '案件结算币种未保存')
 })
 
+await check('案件检索、编辑、生命周期与写权限', async () => {
+  createdMatter = await api(`/matters/${createdMatter.summary.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      title: `自动化验收案件更新-${nonce}`,
+      matterType: '专项法律服务',
+      responsibleUserId: adminId,
+      openedAt: new Date().toISOString().slice(0, 10),
+      courtName: 'Riyadh Commercial Court',
+      caseNumber: `RC-${nonce}`,
+      description: '案件资料编辑和生命周期验收',
+      officeId: riyadhOfficeId,
+      countryCode: 'SA',
+      jurisdiction: 'Kingdom of Saudi Arabia / 沙特阿拉伯',
+      workingLanguage: 'en-US',
+      billingCurrency: 'SAR',
+    }),
+  })
+  assert(createdMatter.courtName === 'Riyadh Commercial Court', '案件编辑未生效')
+  const filtered = await api(`/matters?status=CONFLICT_REVIEW&query=${encodeURIComponent(`RC-${nonce}`)}`)
+  assert(filtered.some((item) => item.id === createdMatter.summary.id), '案件状态筛选或服务端检索未生效')
+
+  const lifecycleMatter = await api('/matters', {
+    method: 'POST',
+    body: JSON.stringify({
+      matterNumber: `TEST-LC-${nonce}`,
+      title: `生命周期验收案件-${nonce}`,
+      matterType: 'ADVISORY',
+      responsibleUserId: adminId,
+      officeId: riyadhOfficeId,
+      countryCode: 'SA',
+      workingLanguage: 'en-US',
+      billingCurrency: 'SAR',
+      clientIds: [],
+      parties: [],
+    }),
+  })
+  const active = await api(`/matters/${lifecycleMatter.summary.id}/lifecycle`, {
+    method: 'POST',
+    body: JSON.stringify({ targetStatus: 'ACTIVE', reason: '冲突检索完成，确认接受委托' }),
+  })
+  assert(active.summary.status === 'ACTIVE', '案件确认立案未进入 ACTIVE')
+  await expectApiError(`/matters/${lifecycleMatter.summary.id}/lifecycle`, {
+    method: 'POST',
+    body: JSON.stringify({ targetStatus: 'ARCHIVED', reason: '非法跨级归档' }),
+  }, 'admin', 409, 'MATTER_TRANSITION_INVALID')
+  await expectApiError(`/matters/${lifecycleMatter.summary.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      title: '越权编辑',
+      matterType: 'ADVISORY',
+      responsibleUserId: adminId,
+      officeId: riyadhOfficeId,
+      countryCode: 'SA',
+      workingLanguage: 'en-US',
+      billingCurrency: 'SAR',
+    }),
+  }, 'liassistant', 403, 'MATTER_WRITE_DENIED')
+})
+
 await check('案件期限创建', async () => {
   const deadline = await api('/deadlines', {
     method: 'POST',
@@ -780,6 +840,26 @@ await check('合同两级审批流程', async () => {
   } catch (error) {
     assert(error.status === 409, `重复启动应返回 409，实际为 ${error.status ?? error.message}`)
   }
+  const firstTask = (await api('/workflows/tasks'))
+    .find((item) => item.processInstanceId === contractWorkflow.processInstanceId)
+  assert(firstTask, '合同审批首级任务不存在')
+  await expectApiError(`/workflows/tasks/${firstTask.id}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ decision: 'REJECT', comment: ' ' }),
+  }, 'admin', 400, 'REJECT_REASON_REQUIRED')
+  const transferTargets = await api(`/workflows/tasks/${firstTask.id}/transfer-targets`)
+  const adminTarget = transferTargets.find((item) => item.userId === adminId)
+  assert(adminTarget, '审批转交候选人未按业务权限返回当前管理员')
+  const transferred = await api(`/workflows/tasks/${firstTask.id}/transfer`, {
+    method: 'POST',
+    headers: { 'Idempotency-Key': `smoke-transfer-${firstTask.id}` },
+    body: JSON.stringify({ targetUserId: adminId, comment: '转交资格验收' }),
+  })
+  assert(transferred.decision === 'TRANSFER', '审批转交未成功')
+  await api(`/workflows/tasks/${firstTask.id}/remind`, { method: 'POST' })
+  await expectApiError(`/workflows/tasks/${firstTask.id}/remind`, {
+    method: 'POST',
+  }, 'admin', 429, 'WORKFLOW_REMIND_RATE_LIMITED')
   for (let step = 0; step < 2; step += 1) {
     const tasks = await api('/workflows/tasks')
     const task = tasks.find((item) => item.processInstanceId === contractWorkflow.processInstanceId)

@@ -10,6 +10,9 @@ import com.zoro.legaloa.matter.MatterController.MatterDetail;
 import com.zoro.legaloa.matter.MatterController.MatterPartyInput;
 import com.zoro.legaloa.matter.MatterController.MatterPartyView;
 import com.zoro.legaloa.matter.MatterController.MatterSummary;
+import com.zoro.legaloa.matter.MatterController.MatterLifecycleRequest;
+import com.zoro.legaloa.matter.MatterController.UpdateMatterRequest;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -38,7 +41,7 @@ public class MatterService {
     }
 
     @Transactional(readOnly = true)
-    public List<MatterSummary> list(String status) {
+    public List<MatterSummary> list(String status, String query) {
         RequestActor actor = actorProvider.current();
         return jdbcClient.sql("""
                         SELECT m.id, m.matter_number, m.title, m.matter_type, m.status,
@@ -55,6 +58,13 @@ public class MatterService {
                         WHERE m.organization_id = :organizationId
                           AND m.deleted_at IS NULL
                           AND (:allStatuses OR m.status = :status)
+                          AND (
+                            :noQuery
+                            OR m.matter_number ILIKE :query
+                            OR m.title ILIKE :query
+                            OR u.display_name ILIKE :query
+                            OR COALESCE(m.case_number, '') ILIKE :query
+                          )
                           AND (
                             EXISTS (
                               SELECT 1 FROM matter_members visible_mm
@@ -77,6 +87,8 @@ public class MatterService {
                 .param("userId", actor.userId())
                 .param("allStatuses", status == null || status.isBlank())
                 .param("status", status == null ? "" : status)
+                .param("noQuery", query == null || query.isBlank())
+                .param("query", "%" + (query == null ? "" : query.trim()) + "%")
                 .query(MatterService::mapSummary)
                 .list();
     }
@@ -314,6 +326,225 @@ public class MatterService {
 
         auditService.success(actor, "MATTER_CREATE", "MATTER", matterId);
         return get(matterId);
+    }
+
+    @Transactional
+    public MatterDetail update(UUID id, UpdateMatterRequest request) {
+        RequestActor actor = actorProvider.current();
+        requireWriteAccess(actor, id);
+        UUID officeId = officeAccessService.resolveAccessibleOffice(actor, request.officeId());
+        OfficeContext office = officeContext(actor, officeId);
+        int updated = jdbcClient.sql("""
+                        UPDATE matters m
+                        SET title = :title,
+                            matter_type = :matterType,
+                            responsible_user_id = :responsibleUserId,
+                            opened_at = :openedAt,
+                            court_name = :courtName,
+                            case_number = :caseNumber,
+                            description = :description,
+                            office_id = :officeId,
+                            country_code = :countryCode,
+                            jurisdiction = :jurisdiction,
+                            working_language = :workingLanguage,
+                            billing_currency = :billingCurrency,
+                            updated_at = now()
+                        WHERE m.id = :id AND m.organization_id = :organizationId
+                          AND m.deleted_at IS NULL
+                          AND EXISTS (
+                            SELECT 1 FROM users u
+                            WHERE u.id = :responsibleUserId
+                              AND u.organization_id = :organizationId
+                              AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+                          )
+                        """)
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .param("title", request.title().trim())
+                .param("matterType", request.matterType().trim())
+                .param("responsibleUserId", request.responsibleUserId())
+                .param("openedAt", request.openedAt())
+                .param("courtName", trimToNull(request.courtName()))
+                .param("caseNumber", trimToNull(request.caseNumber()))
+                .param("description", trimToNull(request.description()))
+                .param("officeId", office.id())
+                .param("countryCode", request.countryCode() == null
+                        ? office.countryCode() : request.countryCode())
+                .param("jurisdiction", trimToNull(request.jurisdiction()))
+                .param("workingLanguage", request.workingLanguage() == null
+                        ? "zh-CN" : request.workingLanguage())
+                .param("billingCurrency", request.billingCurrency() == null
+                        ? office.defaultCurrency() : request.billingCurrency())
+                .update();
+        if (updated == 0) {
+            throw new BusinessException(
+                    "MATTER_CONTEXT_INVALID", "案件或承办律师无效", HttpStatus.BAD_REQUEST
+            );
+        }
+        jdbcClient.sql("""
+                        UPDATE matter_members
+                        SET member_role = CASE
+                            WHEN member_role = 'RESPONSIBLE' THEN 'COUNSEL' ELSE member_role END
+                        WHERE matter_id = :matterId AND member_role = 'RESPONSIBLE'
+                        """)
+                .param("matterId", id)
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO matter_members
+                            (matter_id, user_id, member_role, can_download)
+                        VALUES (:matterId, :userId, 'RESPONSIBLE', TRUE)
+                        ON CONFLICT (matter_id, user_id)
+                        DO UPDATE SET member_role = 'RESPONSIBLE',
+                                      can_download = TRUE, left_at = NULL
+                        """)
+                .param("matterId", id)
+                .param("userId", request.responsibleUserId())
+                .update();
+        addMatterEvent(id, actor, "MATTER_UPDATED", "案件资料已更新", request.title());
+        auditService.success(actor, "MATTER_UPDATE", "MATTER", id);
+        return get(id);
+    }
+
+    @Transactional
+    public MatterDetail transition(UUID id, MatterLifecycleRequest request) {
+        RequestActor actor = actorProvider.current();
+        requireWriteAccess(actor, id);
+        String current = jdbcClient.sql("""
+                        SELECT status FROM matters
+                        WHERE id = :id AND organization_id = :organizationId
+                          AND deleted_at IS NULL
+                        FOR UPDATE
+                        """)
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .query(String.class)
+                .optional()
+                .orElseThrow(() -> new BusinessException(
+                        "MATTER_NOT_FOUND", "案件不存在或无权访问", HttpStatus.NOT_FOUND
+                ));
+        String target = request.targetStatus();
+        if (!MatterLifecyclePolicy.canTransition(current, target)) {
+            throw new BusinessException(
+                    "MATTER_TRANSITION_INVALID",
+                    "案件不能从 " + current + " 转为 " + target,
+                    HttpStatus.CONFLICT
+            );
+        }
+        jdbcClient.sql("""
+                        UPDATE matters
+                        SET status = :target,
+                            closed_at = CASE
+                              WHEN :target IN ('CLOSED', 'ARCHIVED') THEN COALESCE(closed_at, CURRENT_DATE)
+                              WHEN :target = 'ACTIVE' THEN NULL
+                              ELSE closed_at
+                            END,
+                            updated_at = now()
+                        WHERE id = :id AND organization_id = :organizationId
+                        """)
+                .param("target", target)
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .update();
+        jdbcClient.sql("""
+                        INSERT INTO business_state_transitions
+                            (business_type, business_id, from_state, to_state, changed_by, reason)
+                        VALUES ('MATTER', :matterId, :fromState, :toState, :changedBy, :reason)
+                        """)
+                .param("matterId", id)
+                .param("fromState", current)
+                .param("toState", target)
+                .param("changedBy", actor.userId())
+                .param("reason", request.reason().trim())
+                .update();
+        addMatterEvent(
+                id, actor, "STATUS_CHANGED", "案件状态：" + current + " → " + target,
+                request.reason().trim()
+        );
+        auditService.record(
+                actor, "MATTER_STATUS_CHANGE", "MATTER", id, "SUCCESS",
+                request.reason().trim(), Map.of("from", current, "to", target)
+        );
+        return get(id);
+    }
+
+    private void requireWriteAccess(RequestActor actor, UUID matterId) {
+        Boolean allowed = jdbcClient.sql("""
+                        SELECT EXISTS (
+                          SELECT 1 FROM matters m
+                          WHERE m.id = :matterId
+                            AND m.organization_id = :organizationId
+                            AND m.deleted_at IS NULL
+                            AND (
+                              EXISTS (
+                                SELECT 1 FROM matter_members mm
+                                WHERE mm.matter_id = m.id
+                                  AND mm.user_id = :userId AND mm.left_at IS NULL
+                                  AND mm.member_role IN ('RESPONSIBLE', 'LEAD')
+                              )
+                              OR EXISTS (
+                                SELECT 1 FROM user_roles ur
+                                JOIN roles r ON r.id = ur.role_id
+                                WHERE ur.user_id = :userId
+                                  AND r.organization_id = :organizationId
+                                  AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
+                              )
+                            )
+                        )
+                        """)
+                .param("matterId", matterId)
+                .param("organizationId", actor.organizationId())
+                .param("userId", actor.userId())
+                .query(Boolean.class)
+                .single();
+        if (!Boolean.TRUE.equals(allowed)) {
+            throw new BusinessException(
+                    "MATTER_WRITE_DENIED", "当前用户无权编辑该案件", HttpStatus.FORBIDDEN
+            );
+        }
+    }
+
+    private OfficeContext officeContext(RequestActor actor, UUID officeId) {
+        return jdbcClient.sql("""
+                        SELECT id, country_code, default_currency
+                        FROM offices
+                        WHERE id = :officeId AND organization_id = :organizationId
+                          AND status = 'ACTIVE'
+                        """)
+                .param("officeId", officeId)
+                .param("organizationId", actor.organizationId())
+                .query((rs, rowNum) -> new OfficeContext(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("country_code"),
+                        rs.getString("default_currency")
+                ))
+                .optional()
+                .orElseThrow(() -> new BusinessException(
+                        "OFFICE_INVALID", "承办办公室不存在或已停用", HttpStatus.BAD_REQUEST
+                ));
+    }
+
+    private void addMatterEvent(
+            UUID matterId,
+            RequestActor actor,
+            String eventType,
+            String title,
+            String description
+    ) {
+        jdbcClient.sql("""
+                        INSERT INTO matter_events
+                            (matter_id, event_type, title, description, event_at, created_by)
+                        VALUES (:matterId, :eventType, :title, :description, now(), :createdBy)
+                        """)
+                .param("matterId", matterId)
+                .param("eventType", eventType)
+                .param("title", title)
+                .param("description", description)
+                .param("createdBy", actor.userId())
+                .update();
+    }
+
+    private static String trimToNull(String value) {
+        return value == null || value.isBlank() ? null : value.trim();
     }
 
     private static MatterSummary mapSummary(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {

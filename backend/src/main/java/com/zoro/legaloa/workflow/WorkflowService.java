@@ -13,6 +13,7 @@ import com.zoro.legaloa.notification.OutboxService;
 import com.zoro.legaloa.workflow.WorkflowController.CompleteTaskRequest;
 import com.zoro.legaloa.workflow.WorkflowController.StartWorkflowRequest;
 import com.zoro.legaloa.workflow.WorkflowController.TransferTaskRequest;
+import com.zoro.legaloa.workflow.WorkflowController.TransferTargetView;
 import com.zoro.legaloa.workflow.WorkflowController.WorkflowActionResult;
 import com.zoro.legaloa.workflow.WorkflowController.WorkflowInstanceView;
 import com.zoro.legaloa.workflow.WorkflowController.WorkflowTaskView;
@@ -339,6 +340,11 @@ public class WorkflowService {
     ) {
         RequestActor actor = actorProvider.current();
         String decision = normalizeDecision(request);
+        if ("REJECT".equals(decision) && trimToNull(request.comment()) == null) {
+            throw new BusinessException(
+                    "REJECT_REASON_REQUIRED", "驳回审批必须填写原因", HttpStatus.BAD_REQUEST
+            );
+        }
         String operation = "workflow-task-complete:" + taskId;
         Optional<JsonNode> replay = idempotencyService.begin(
                 actor, operation, idempotencyKey, Map.of(
@@ -509,6 +515,43 @@ public class WorkflowService {
         return response;
     }
 
+    @Transactional(readOnly = true)
+    public List<TransferTargetView> transferTargets(String taskId) {
+        RequestActor actor = actorProvider.current();
+        Task task = requireActionableTask(actor, taskId);
+        WorkflowLink link = findLink(task.getProcessInstanceId());
+        return jdbcClient.sql("""
+                        SELECT id, username, display_name
+                        FROM users
+                        WHERE organization_id = :organizationId
+                          AND status = 'ACTIVE' AND deleted_at IS NULL
+                          AND username <> COALESCE(:assignee, '')
+                        ORDER BY display_name
+                        LIMIT 200
+                        """)
+                .param("organizationId", actor.organizationId())
+                .param("assignee", task.getAssignee() == null ? "" : task.getAssignee())
+                .query((rs, rowNum) -> new UserTarget(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("username"),
+                        rs.getString("display_name")
+                ))
+                .list()
+                .stream()
+                .filter(target -> officeAccessService.canAccessBusiness(
+                        new RequestActor(
+                                target.id(), actor.organizationId(),
+                                target.username(), target.displayName()
+                        ),
+                        link.businessType(),
+                        link.businessId()
+                ))
+                .map(target -> new TransferTargetView(
+                        target.id(), target.username(), target.displayName()
+                ))
+                .toList();
+    }
+
     @Transactional
     public void remind(String taskId) {
         RequestActor actor = actorProvider.current();
@@ -526,6 +569,26 @@ public class WorkflowService {
                 ))) {
             throw new BusinessException(
                     "WORKFLOW_REMIND_DENIED", "只有发起人或审批管理员可以催办", HttpStatus.FORBIDDEN
+            );
+        }
+        Boolean recentlyReminded = jdbcClient.sql("""
+                        SELECT EXISTS (
+                          SELECT 1 FROM workflow_action_logs
+                          WHERE workflow_link_id = :workflowLinkId
+                            AND task_id = :taskId
+                            AND action = 'REMIND'
+                            AND occurred_at > now() - INTERVAL '30 minutes'
+                        )
+                        """)
+                .param("workflowLinkId", link.id())
+                .param("taskId", taskId)
+                .query(Boolean.class)
+                .single();
+        if (Boolean.TRUE.equals(recentlyReminded)) {
+            throw new BusinessException(
+                    "WORKFLOW_REMIND_RATE_LIMITED",
+                    "同一审批任务 30 分钟内只能催办一次",
+                    HttpStatus.TOO_MANY_REQUESTS
             );
         }
         Set<UUID> recipients = taskRecipients(task, link);

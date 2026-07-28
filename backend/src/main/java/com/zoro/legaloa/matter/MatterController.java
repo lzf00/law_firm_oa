@@ -13,6 +13,7 @@ import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -33,8 +34,11 @@ public class MatterController {
     }
 
     @GetMapping
-    List<MatterSummary> list(@RequestParam(required = false) String status) {
-        return matterService.list(status);
+    List<MatterSummary> list(
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String query
+    ) {
+        return matterService.list(status, query);
     }
 
     @GetMapping("/{id}")
@@ -50,6 +54,22 @@ public class MatterController {
     @PostMapping
     MatterDetail create(@Valid @RequestBody CreateMatterRequest request) {
         return matterService.create(request);
+    }
+
+    @PutMapping("/{id}")
+    MatterDetail update(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateMatterRequest request
+    ) {
+        return matterService.update(id, request);
+    }
+
+    @PostMapping("/{id}/lifecycle")
+    MatterDetail transition(
+            @PathVariable UUID id,
+            @Valid @RequestBody MatterLifecycleRequest request
+    ) {
+        return matterService.transition(id, request);
     }
 
     public record CreateMatterRequest(
@@ -74,6 +94,28 @@ public class MatterController {
             @NotNull UUID partyId,
             @NotBlank @Size(max = 80) String partyRole,
             @NotBlank @Size(max = 32) String side
+    ) {}
+
+    public record UpdateMatterRequest(
+            @NotBlank @Size(max = 300) String title,
+            @NotBlank @Size(max = 80) String matterType,
+            @NotNull UUID responsibleUserId,
+            LocalDate openedAt,
+            @Size(max = 300) String courtName,
+            @Size(max = 150) String caseNumber,
+            @Size(max = 4000) String description,
+            UUID officeId,
+            @Pattern(regexp = "^[A-Z]{2}$") String countryCode,
+            @Size(max = 200) String jurisdiction,
+            @Pattern(regexp = "^(zh-CN|en-US|ar)$") String workingLanguage,
+            @Pattern(regexp = "^[A-Z]{3}$") String billingCurrency
+    ) {}
+
+    public record MatterLifecycleRequest(
+            @NotBlank
+            @Pattern(regexp = "^(CONFLICT_REVIEW|ACTIVE|SUSPENDED|CLOSED|ARCHIVED|REJECTED)$")
+            String targetStatus,
+            @NotBlank @Size(max = 500) String reason
     ) {}
 
     public record MatterSummary(
