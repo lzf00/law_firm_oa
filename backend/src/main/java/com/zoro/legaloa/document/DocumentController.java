@@ -52,6 +52,14 @@ public class DocumentController {
         return documentService.download(documentId, versionId);
     }
 
+    @PostMapping("/{documentId}/versions/{versionId}/preview-url")
+    DownloadTicket preview(
+            @PathVariable UUID documentId,
+            @PathVariable UUID versionId
+    ) {
+        return documentService.preview(documentId, versionId);
+    }
+
     public record InitiateUploadRequest(
             UUID documentId,
             UUID matterId,
@@ -87,7 +95,9 @@ public class DocumentController {
             String signatureStatus,
             String originalFilename,
             long sizeBytes,
-            Instant createdAt
+            Instant createdAt,
+            String ingestionStatus,
+            String scanFailureReason,
+            Instant scanCompletedAt
     ) {}
 }
-

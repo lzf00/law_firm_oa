@@ -6,11 +6,13 @@ import io.minio.GetPresignedObjectUrlArgs;
 import io.minio.MakeBucketArgs;
 import io.minio.GetObjectArgs;
 import io.minio.MinioClient;
+import io.minio.RemoveObjectArgs;
 import io.minio.StatObjectArgs;
 import io.minio.StatObjectResponse;
 import io.minio.http.Method;
 import jakarta.annotation.PostConstruct;
 import java.util.Map;
+import java.io.InputStream;
 import java.security.DigestInputStream;
 import java.security.MessageDigest;
 import java.util.HexFormat;
@@ -105,6 +107,26 @@ public class ObjectStorageService {
         ) {
             digestStream.transferTo(java.io.OutputStream.nullOutputStream());
             return HexFormat.of().formatHex(digestStream.getMessageDigest().digest());
+        } catch (Exception exception) {
+            throw storageUnavailable(exception);
+        }
+    }
+
+    public InputStream open(String objectKey) {
+        try {
+            return internalClient.getObject(
+                    GetObjectArgs.builder().bucket(bucket).object(objectKey).build()
+            );
+        } catch (Exception exception) {
+            throw storageUnavailable(exception);
+        }
+    }
+
+    public void delete(String objectKey) {
+        try {
+            internalClient.removeObject(
+                    RemoveObjectArgs.builder().bucket(bucket).object(objectKey).build()
+            );
         } catch (Exception exception) {
             throw storageUnavailable(exception);
         }

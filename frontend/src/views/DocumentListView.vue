@@ -21,6 +21,9 @@ interface DocumentItem {
   originalFilename: string
   sizeBytes: number
   createdAt: string
+  ingestionStatus: string
+  scanFailureReason?: string
+  scanCompletedAt?: string
 }
 
 const matters = ref<Matter[]>([])
@@ -94,6 +97,10 @@ async function upload(event: Event) {
 }
 
 async function download(item: DocumentItem) {
+  if (item.ingestionStatus !== 'AVAILABLE') {
+    ElMessage.warning(text('文件尚未通过安全扫描，暂不可下载', 'This file is unavailable until security scanning succeeds'))
+    return
+  }
   try {
     const ticket = (await http.post(`/documents/${item.id}/versions/${item.currentVersionId}/download-url`)).data
     window.open(ticket.downloadUrl, '_blank', 'noopener,noreferrer')
@@ -137,11 +144,14 @@ async function download(item: DocumentItem) {
           <tr v-for="item in documents" :key="item.id">
             <td><strong>{{ item.logicalName }}</strong><small>{{ item.originalFilename }}</small></td>
             <td>{{ formatLegalCode(item.documentType, locale) }}</td>
-            <td><span class="status-pill">V{{ item.versionNumber }} · {{ formatLegalCode(item.versionStatus, locale) }}</span></td>
+            <td>
+              <span class="status-pill">V{{ item.versionNumber }} · {{ formatLegalCode(item.ingestionStatus, locale) }}</span>
+              <small v-if="item.scanFailureReason">{{ item.scanFailureReason }}</small>
+            </td>
             <td>{{ formatLegalCode(item.confidentialityLevel, locale) }}</td>
             <td>{{ humanSize(item.sizeBytes) }}</td>
             <td>{{ new Date(item.createdAt).toLocaleString(locale) }}</td>
-            <td><button class="table-action" :aria-label="text('下载', 'Download')" @click="download(item)"><Download :size="16" /></button></td>
+            <td><button class="table-action" :disabled="item.ingestionStatus !== 'AVAILABLE'" :aria-label="text('下载', 'Download')" @click="download(item)"><Download :size="16" /></button></td>
           </tr>
         </tbody>
       </table>

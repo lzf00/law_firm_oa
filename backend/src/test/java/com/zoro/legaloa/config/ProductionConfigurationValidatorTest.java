@@ -29,7 +29,9 @@ class ProductionConfigurationValidatorTest {
                         "changeme",
                         "replace_with_dingtalk_app_key",
                         "change_me",
-                        "http://localhost/auth/dingtalk/callback"
+                        "http://localhost/auth/dingtalk/callback",
+                        "deterministic",
+                        "localhost"
                 );
 
         List<String> errors = ProductionConfigurationValidator.validate(settings);
@@ -60,7 +62,9 @@ class ProductionConfigurationValidatorTest {
                         base.storageSecretKey(),
                         base.dingTalkClientId(),
                         base.dingTalkClientSecret(),
-                        "http://oa.launch-check.test/auth/dingtalk/callback"
+                        "http://oa.launch-check.test/auth/dingtalk/callback",
+                        base.scannerMode(),
+                        base.scannerHost()
                 );
 
         assertThat(ProductionConfigurationValidator.validate(settings))
@@ -84,7 +88,9 @@ class ProductionConfigurationValidatorTest {
                 "storage-secret-key",
                 "ding-client-id",
                 "ding-client-secret",
-                "https://oa.launch-check.test/auth/dingtalk/callback"
+                "https://oa.launch-check.test/auth/dingtalk/callback",
+                "clamav",
+                "clamav.launch-check.internal"
         );
     }
 }

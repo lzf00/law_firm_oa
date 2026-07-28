@@ -14,3 +14,8 @@ app:
     access-key: ${STORAGE_ACCESS_KEY}
     secret-key: ${STORAGE_SECRET_KEY}
     bucket: ${STORAGE_BUCKET:law-oa-private}
+  document:
+    scanner:
+      mode: ${DOCUMENT_SCANNER_MODE:clamav}
+      host: ${CLAMAV_HOST}
+      port: ${CLAMAV_PORT:3310}

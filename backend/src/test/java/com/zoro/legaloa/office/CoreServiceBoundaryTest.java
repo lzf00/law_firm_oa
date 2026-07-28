@@ -10,6 +10,7 @@ import com.zoro.legaloa.common.AuditService;
 import com.zoro.legaloa.common.AuthorizationService;
 import com.zoro.legaloa.common.BusinessException;
 import com.zoro.legaloa.document.DocumentAccessService;
+import com.zoro.legaloa.document.AntivirusScanner;
 import com.zoro.legaloa.document.DocumentController.InitiateUploadRequest;
 import com.zoro.legaloa.document.DocumentService;
 import com.zoro.legaloa.document.DocumentSecurityService;
@@ -34,6 +35,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.jdbc.core.simple.JdbcClient;
+import org.springframework.transaction.PlatformTransactionManager;
 
 @ExtendWith(MockitoExtension.class)
 class CoreServiceBoundaryTest {
@@ -46,6 +48,8 @@ class CoreServiceBoundaryTest {
     @Mock DocumentAccessService documentAccessService;
     @Mock ObjectStorageService objectStorageService;
     @Mock DocumentSecurityService documentSecurityService;
+    @Mock AntivirusScanner antivirusScanner;
+    @Mock PlatformTransactionManager transactionManager;
     @Mock OfficeAccessService officeAccessService;
 
     private RequestActor actor;
@@ -167,7 +171,7 @@ class CoreServiceBoundaryTest {
     void documentRequiresExactlyOneBusinessContext() {
         DocumentService service = new DocumentService(
                 jdbcClient, actorProvider, documentAccessService, objectStorageService,
-                auditService, documentSecurityService
+                auditService, documentSecurityService, antivirusScanner, transactionManager
         );
 
         assertThatThrownBy(() -> service.initiate(uploadRequest(null, null, "application/pdf")))
@@ -180,7 +184,7 @@ class CoreServiceBoundaryTest {
     void documentRejectsDisallowedContentTypeBeforeAuthorizationOrStorage() {
         DocumentService service = new DocumentService(
                 jdbcClient, actorProvider, documentAccessService, objectStorageService,
-                auditService, documentSecurityService
+                auditService, documentSecurityService, antivirusScanner, transactionManager
         );
 
         assertThatThrownBy(() -> service.initiate(uploadRequest(

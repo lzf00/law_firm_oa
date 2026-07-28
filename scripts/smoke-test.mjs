@@ -433,6 +433,7 @@ await check('私有对象存储直传、落库与下载授权', async () => {
   })
   assert(upload.ok, `对象存储直传失败：${upload.status}`)
   createdDocument = await api(`/documents/uploads/${ticket.uploadId}/complete`, { method: 'POST' })
+  assert(createdDocument.ingestionStatus === 'AVAILABLE', '安全扫描通过后文档未进入 AVAILABLE')
   const downloadTicket = await api(
     `/documents/${createdDocument.id}/versions/${createdDocument.currentVersionId}/download-url`,
     { method: 'POST' },
@@ -466,6 +467,99 @@ await check('文档上下文与文件类型安全边界', async () => {
       sha256: 'a'.repeat(64),
     }),
   }, 'admin', 400, 'FILE_TYPE_NOT_ALLOWED')
+  await expectApiError('/documents/uploads', {
+    method: 'POST',
+    body: JSON.stringify({
+      matterId: seededMatterId,
+      logicalName: '超大文件',
+      documentType: 'CASE_FILE',
+      originalFilename: 'oversized.pdf',
+      contentType: 'application/pdf',
+      sizeBytes: 209715201,
+      sha256: 'a'.repeat(64),
+    }),
+  }, 'admin', 400, 'VALIDATION_FAILED')
+  await expectApiError('/documents/uploads', {
+    method: 'POST',
+    body: JSON.stringify({
+      matterId: createdMatter.summary.id,
+      logicalName: '跨办公室越权上传',
+      documentType: 'CASE_FILE',
+      originalFilename: 'denied.txt',
+      contentType: 'text/plain',
+      sizeBytes: 10,
+      sha256: 'a'.repeat(64),
+    }),
+  }, 'zhanglawyer', 403, 'DOCUMENT_ACCESS_DENIED')
+})
+
+await check('文件签名、恶意样本与扫描失败均保持隔离', async () => {
+  const cases = [
+    {
+      logicalName: `伪造PDF-${nonce}`,
+      filename: `fake-${nonce}.pdf`,
+      contentType: 'application/pdf',
+      bytes: Buffer.from('not a real pdf', 'utf8'),
+      expectedStatus: 422,
+      expectedCode: 'FILE_SIGNATURE_MISMATCH',
+      ingestionStatus: 'REJECTED',
+    },
+    {
+      logicalName: `EICAR-${nonce}`,
+      filename: `eicar-${nonce}.txt`,
+      contentType: 'text/plain',
+      bytes: Buffer.from('X5O!P%@AP[4\\PZX54(P^)7CC)7}$EICAR-STANDARD-ANTIVIRUS-TEST-FILE', 'ascii'),
+      expectedStatus: 422,
+      expectedCode: 'MALWARE_DETECTED',
+      ingestionStatus: 'REJECTED',
+    },
+    {
+      logicalName: `扫描器失败-${nonce}`,
+      filename: `scanner-failure-${nonce}.txt`,
+      contentType: 'text/plain',
+      bytes: Buffer.from('ZORO_TEST_SCANNER_FAILURE', 'ascii'),
+      expectedStatus: 503,
+      expectedCode: 'SCANNER_FAILED',
+      ingestionStatus: 'FAILED',
+    },
+  ]
+  for (const sample of cases) {
+    const ticket = await api('/documents/uploads', {
+      method: 'POST',
+      body: JSON.stringify({
+        matterId: seededMatterId,
+        logicalName: sample.logicalName,
+        documentType: 'CASE_FILE',
+        originalFilename: sample.filename,
+        contentType: sample.contentType,
+        sizeBytes: sample.bytes.length,
+        sha256: createHash('sha256').update(sample.bytes).digest('hex'),
+      }),
+    })
+    const upload = await fetch(ticket.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': ticket.requiredContentType },
+      body: sample.bytes,
+    })
+    assert(upload.ok, `${sample.logicalName} 测试对象上传失败`)
+    await expectApiError(
+      `/documents/uploads/${ticket.uploadId}/complete`,
+      { method: 'POST' },
+      'admin',
+      sample.expectedStatus,
+      sample.expectedCode,
+    )
+    const documents = await api(`/documents?matterId=${seededMatterId}`)
+    const isolated = documents.find((document) => document.logicalName === sample.logicalName)
+    assert(isolated?.ingestionStatus === sample.ingestionStatus, `${sample.logicalName} 未保持预期隔离状态`)
+    await expectApiError(
+      `/documents/${isolated.id}/versions/${isolated.currentVersionId}/download-url`,
+      { method: 'POST' },
+      'admin',
+      409,
+      'DOCUMENT_NOT_AVAILABLE',
+    )
+  }
 })
 
 await check('助理可阅元数据但不能下载原件', async () => {

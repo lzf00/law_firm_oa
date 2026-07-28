@@ -58,3 +58,12 @@ app:
     client-id: ${DINGTALK_CLIENT_ID:}
     client-secret: ${DINGTALK_CLIENT_SECRET:}
     redirect-uri: ${DINGTALK_REDIRECT_URI:}
+  document:
+    scanner:
+      mode: ${DOCUMENT_SCANNER_MODE:deterministic}
+      host: ${CLAMAV_HOST:localhost}
+      port: ${CLAMAV_PORT:3310}
+      timeout: ${CLAMAV_TIMEOUT:30s}
+    cleanup:
+      interval: ${DOCUMENT_CLEANUP_INTERVAL:PT1H}
+      batch-size: ${DOCUMENT_CLEANUP_BATCH_SIZE:100}

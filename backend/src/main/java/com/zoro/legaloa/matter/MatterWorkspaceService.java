@@ -171,7 +171,8 @@ public class MatterWorkspaceService {
                         SELECT d.id, d.matter_id, d.contract_id, d.logical_name, d.document_type,
                                d.confidentiality_level, d.current_version_id,
                                dv.version_number, dv.version_status, dv.signature_status,
-                               dv.original_filename, dv.size_bytes, dv.created_at
+                               dv.original_filename, dv.size_bytes, dv.created_at,
+                               dv.ingestion_status, dv.scan_failure_reason, dv.scan_completed_at
                         FROM documents d
                         LEFT JOIN document_versions dv ON dv.id = d.current_version_id
                         WHERE d.organization_id = :organizationId
@@ -195,7 +196,11 @@ public class MatterWorkspaceService {
                         rs.getString("original_filename"),
                         rs.getLong("size_bytes"),
                         rs.getTimestamp("created_at") == null
-                                ? null : rs.getTimestamp("created_at").toInstant()
+                                ? null : rs.getTimestamp("created_at").toInstant(),
+                        rs.getString("ingestion_status"),
+                        rs.getString("scan_failure_reason"),
+                        rs.getTimestamp("scan_completed_at") == null
+                                ? null : rs.getTimestamp("scan_completed_at").toInstant()
                 ))
                 .list();
     }

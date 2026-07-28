@@ -29,7 +29,9 @@ public class ProductionConfigurationValidator {
             @Value("${app.storage.secret-key}") String storageSecretKey,
             @Value("${app.dingtalk.client-id}") String dingTalkClientId,
             @Value("${app.dingtalk.client-secret}") String dingTalkClientSecret,
-            @Value("${app.dingtalk.redirect-uri}") String dingTalkRedirectUri
+            @Value("${app.dingtalk.redirect-uri}") String dingTalkRedirectUri,
+            @Value("${app.document.scanner.mode}") String scannerMode,
+            @Value("${app.document.scanner.host}") String scannerHost
     ) {
         this.settings = new Settings(
                 authMode,
@@ -44,7 +46,9 @@ public class ProductionConfigurationValidator {
                 storageSecretKey,
                 dingTalkClientId,
                 dingTalkClientSecret,
-                dingTalkRedirectUri
+                dingTalkRedirectUri,
+                scannerMode,
+                scannerHost
         );
     }
 
@@ -71,6 +75,10 @@ public class ProductionConfigurationValidator {
         requireSecret("storage secret key", settings.storageSecretKey(), errors);
         requireSecret("DingTalk client ID", settings.dingTalkClientId(), errors);
         requireSecret("DingTalk client secret", settings.dingTalkClientSecret(), errors);
+        if (!"clamav".equalsIgnoreCase(settings.scannerMode())) {
+            errors.add("app.document.scanner.mode must be clamav");
+        }
+        requireHost("ClamAV host", settings.scannerHost(), errors);
 
         if (isPlaceholder(settings.databaseUrl())
                 || !settings.databaseUrl().startsWith("jdbc:postgresql://")) {
@@ -159,6 +167,8 @@ public class ProductionConfigurationValidator {
             String storageSecretKey,
             String dingTalkClientId,
             String dingTalkClientSecret,
-            String dingTalkRedirectUri
+            String dingTalkRedirectUri,
+            String scannerMode,
+            String scannerHost
     ) {}
 }

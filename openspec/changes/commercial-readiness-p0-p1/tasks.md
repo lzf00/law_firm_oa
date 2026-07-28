@@ -35,13 +35,13 @@
 
 ## 5. P0 Secure Document Ingestion
 
-- [ ] 5.1 Add Flyway migration and domain states for quarantined, scanning, available, rejected, and failed documents
-- [ ] 5.2 Normalize filenames and implement server-side signature, extension, size, archive-limit, and macro-policy inspection
-- [ ] 5.3 Add an antivirus adapter with a deterministic test implementation and fail-closed production configuration
-- [ ] 5.4 Move hashing and scanning outside the upload-completion database transaction and expose scan status
+- [x] 5.1 Add Flyway migration and domain states for quarantined, scanning, available, rejected, and failed documents
+- [x] 5.2 Normalize filenames and implement server-side signature, extension, size, archive-limit, and macro-policy inspection
+- [x] 5.3 Add an antivirus adapter with a deterministic test implementation and fail-closed production configuration
+- [x] 5.4 Move hashing and scanning outside the upload-completion database transaction and expose scan status
 - [ ] 5.5 Restrict preview/download to available documents and audit all scan, override, preview, download, export, and deletion decisions
-- [ ] 5.6 Add scheduled cleanup for expired incomplete uploads and unreferenced quarantine objects with metrics
-- [ ] 5.7 Add malicious-signature, macro/archive, scanner-failure, oversized-file, cross-office, and cleanup regression tests
+- [x] 5.6 Add scheduled cleanup for expired incomplete uploads and unreferenced quarantine objects with metrics
+- [x] 5.7 Add malicious-signature, macro/archive, scanner-failure, oversized-file, cross-office, and cleanup regression tests
 
 ## 6. P0 Production, Compliance, and Release Readiness
 

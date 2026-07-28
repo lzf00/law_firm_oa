@@ -89,6 +89,7 @@ interface MatterWorkspace {
     documentType: string
     versionNumber?: number
     versionStatus?: string
+    ingestionStatus?: string
     confidentialityLevel: string
   }>
   activity: Array<{
@@ -394,7 +395,7 @@ onMounted(async () => {
               <ul class="compact-list">
                 <li v-for="item in workspace.documents.slice(0, 8)" :key="item.id">
                   <div><strong>{{ item.logicalName }}</strong><span>{{ formatLegalCode(item.documentType, locale) }} · V{{ item.versionNumber || '—' }}</span></div>
-                  <span class="status-pill">{{ formatLegalCode(item.versionStatus || item.confidentialityLevel, locale) }}</span>
+                  <span class="status-pill">{{ formatLegalCode(item.ingestionStatus || item.versionStatus || item.confidentialityLevel, locale) }}</span>
                 </li>
                 <li v-if="!workspace.documents.length" class="list-empty">{{ text('暂无案件文档', 'No matter documents') }}</li>
               </ul>
