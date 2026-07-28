@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
 import type { Matter, OrganizationUser } from '@/api/types'
 import { translate as t, useI18n } from '@/i18n'
+import { formatLegalCode } from '@/legalFormat'
 
 interface Contract {
   id: string
@@ -170,7 +171,7 @@ onMounted(load)
             <td><strong>{{ contract.title }}</strong><small>{{ contract.effectiveDate || (isEnglish ? 'Not effective' : '尚未生效') }} → {{ contract.expiryDate || (isEnglish ? 'Open-ended' : '长期') }}</small></td>
             <td>{{ contract.clientName || '—' }}</td><td>{{ contract.responsibleName }}</td>
             <td>{{ money(contract) }}</td><td>{{ contract.matterCount }}</td>
-            <td><span class="status-pill">{{ contract.status }}</span></td>
+            <td><span class="status-pill">{{ formatLegalCode(contract.status, locale) }}</span></td>
             <td><div class="table-actions"><button class="table-action" @click="openForm(contract)"><Pencil :size="15" /> {{ isEnglish ? 'Edit' : '编辑' }}</button><button v-if="contract.status === 'DRAFT'" class="table-action approve" :disabled="submitting === contract.id" @click="submitReview(contract)"><Send :size="15" /> {{ isEnglish ? 'Submit' : '送审' }}</button></div></td>
           </tr>
         </tbody>

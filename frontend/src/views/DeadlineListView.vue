@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
 import type { Matter, OrganizationUser } from '@/api/types'
 import { translate as t, useI18n } from '@/i18n'
+import { formatLegalCode } from '@/legalFormat'
 
 interface Deadline {
   id: string
@@ -159,8 +160,8 @@ onMounted(load)
           <span>{{ daysLeft(deadline.dueAt) < 0 ? (isEnglish ? `${-daysLeft(deadline.dueAt)} days overdue` : `逾期 ${-daysLeft(deadline.dueAt)} 天`) : (isEnglish ? `${daysLeft(deadline.dueAt)} days left` : `剩余 ${daysLeft(deadline.dueAt)} 天`) }}</span>
         </div>
         <div class="deadline-main"><strong>{{ deadline.title }}</strong><span>{{ deadline.matterNumber }} · {{ deadline.matterTitle }}</span><small>{{ isEnglish ? 'Reminders' : '提醒' }}：{{ reminderDays(deadline.reminderPolicy) }} {{ isEnglish ? 'days before' : '天前' }}</small></div>
-        <div class="deadline-meta"><span>{{ deadline.deadlineType }}</span><strong>{{ deadline.ownerName }}</strong></div>
-        <span class="status-pill">{{ deadline.priority }}</span>
+        <div class="deadline-meta"><span>{{ formatLegalCode(deadline.deadlineType, locale) }}</span><strong>{{ deadline.ownerName }}</strong></div>
+        <span class="status-pill">{{ formatLegalCode(deadline.priority, locale) }}</span>
         <button class="table-action" @click="openForm(deadline)"><Pencil :size="15" /> {{ isEnglish ? 'Edit' : '编辑' }}</button>
       </article>
       <div v-if="!loading && deadlines.length === 0" class="empty-state"><CalendarClock :size="32" /><strong>{{ isEnglish ? 'No open deadlines' : '没有待办期限' }}</strong></div>

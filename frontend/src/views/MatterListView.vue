@@ -6,6 +6,7 @@ import { http } from '@/api/http'
 import type { CurrentUser, Matter, Office } from '@/api/types'
 import { translate as t, useI18n } from '@/i18n'
 import { useRouter } from 'vue-router'
+import { formatLegalCode } from '@/legalFormat'
 
 const matters = ref<Matter[]>([])
 const offices = ref<Office[]>([])
@@ -16,6 +17,7 @@ const activeStatus = ref('')
 const dialogVisible = ref(false)
 const saving = ref(false)
 const { locale } = useI18n()
+const text = (zh: string, en: string) => locale.value === 'en-US' ? en : zh
 const router = useRouter()
 const form = reactive({
   matterNumber: '',
@@ -47,7 +49,7 @@ async function loadMatters() {
       },
     })).data
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '案件加载失败')
+    ElMessage.error(error instanceof Error ? error.message : text('案件加载失败', 'Failed to load matters'))
   } finally {
     loading.value = false
   }
@@ -65,7 +67,7 @@ async function load() {
     if (!form.responsibleUserId) form.responsibleUserId = meResult.data.userId
     if (!form.officeId) selectOffice(offices.value[0]?.id ?? '')
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '案件加载失败')
+    ElMessage.error(error instanceof Error ? error.message : text('案件加载失败', 'Failed to load matters'))
   }
   await loadMatters()
 }
@@ -101,7 +103,7 @@ async function createMatter() {
     await load()
     ElMessage.success(locale.value === 'en-US' ? 'Matter created' : '案件创建成功')
   } catch (error) {
-    ElMessage.error(error instanceof Error ? error.message : '案件创建失败')
+    ElMessage.error(error instanceof Error ? error.message : text('案件创建失败', 'Failed to create matter'))
   } finally {
     saving.value = false
   }
@@ -121,7 +123,7 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer))
       <div>
         <span class="eyebrow">MATTER MANAGEMENT</span>
         <h2>{{ t('headline.matters') }}</h2>
-        <p>按承办关系管理团队、期限、文档与卷宗，敏感案件独立授权。</p>
+        <p>{{ text('按承办关系管理团队、期限、文档与卷宗，敏感案件独立授权。', 'Manage teams, deadlines, documents and archives by engagement relationship, with separate authorization for sensitive matters.') }}</p>
       </div>
       <button class="primary-action" @click="dialogVisible = true"><Plus :size="17" /> {{ locale === 'en-US' ? 'New matter' : '新建案件' }}</button>
     </div>
@@ -129,7 +131,7 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer))
     <div class="toolbar">
       <label class="search-box">
         <Search :size="17" />
-        <input v-model="query" placeholder="搜索案号、案件名称或承办律师" />
+        <input v-model="query" :placeholder="text('搜索案号、案件名称或承办律师', 'Search matter number, title or counsel')" />
       </label>
       <div class="filter-tabs">
         <button
@@ -142,10 +144,10 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer))
     </div>
 
     <div class="panel table-panel">
-      <div v-if="loading" class="empty-state">正在加载案件…</div>
+      <div v-if="loading" class="empty-state">{{ text('正在加载案件…', 'Loading matters…') }}</div>
       <table v-else>
         <thead>
-          <tr><th>案号 / No.</th><th>案件 / Matter</th><th>办公室 / Office</th><th>司法辖区 / Jurisdiction</th><th>承办律师 / Counsel</th><th>状态 / Status</th></tr>
+          <tr><th>{{ text('案号', 'Matter no.') }}</th><th>{{ text('案件', 'Matter') }}</th><th>{{ text('办公室', 'Office') }}</th><th>{{ text('司法辖区', 'Jurisdiction') }}</th><th>{{ text('承办律师', 'Counsel') }}</th><th>{{ text('状态', 'Status') }}</th></tr>
         </thead>
         <tbody>
           <tr
@@ -157,18 +159,18 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer))
             @keydown.enter="router.push(`/matters/${matter.id}`)"
           >
             <td><span class="mono">{{ matter.matterNumber }}</span></td>
-            <td><strong>{{ matter.title }}</strong><small>{{ matter.confidentialityLevel }}</small></td>
-            <td><strong>{{ locale === 'en-US' ? matter.officeNameEn : matter.officeNameZh }}</strong><small>{{ matter.billingCurrency }} · {{ matter.workingLanguage }}</small></td>
+            <td><strong>{{ matter.title }}</strong><small>{{ formatLegalCode(matter.confidentialityLevel, locale) }}</small></td>
+            <td><strong>{{ locale === 'en-US' ? matter.officeNameEn : matter.officeNameZh }}</strong><small>{{ matter.billingCurrency }} · {{ formatLegalCode(matter.workingLanguage, locale) }}</small></td>
             <td>{{ matter.jurisdiction || matter.countryCode || '—' }}</td>
             <td>{{ matter.responsibleName }}</td>
-            <td><span class="status-pill">{{ matter.status }}</span></td>
+            <td><span class="status-pill">{{ formatLegalCode(matter.status, locale) }}</span></td>
           </tr>
         </tbody>
       </table>
       <div v-if="!loading && matters.length === 0" class="empty-state">
         <BriefcaseBusiness :size="32" />
-        <strong>尚未创建案件</strong>
-        <span>先完成利益冲突检索，再发起立案。</span>
+        <strong>{{ text('尚未创建案件', 'No matters yet') }}</strong>
+        <span>{{ text('先完成利益冲突检索，再发起立案。', 'Complete conflict clearance before opening a matter.') }}</span>
       </div>
     </div>
 
@@ -179,12 +181,12 @@ onBeforeUnmount(() => window.clearTimeout(searchTimer))
     >
       <form class="dialog-form two-column-form" @submit.prevent="createMatter">
         <label><span>{{ locale === 'en-US' ? 'Matter number' : '案号' }}</span><input v-model="form.matterNumber" required /></label>
-        <label><span>{{ locale === 'en-US' ? 'Matter type' : '案件类型' }}</span><select v-model="form.matterType"><option value="CROSS_BORDER">Cross-border / 跨境业务</option><option value="LITIGATION">Litigation / 诉讼</option><option value="ARBITRATION">Arbitration / 仲裁</option><option value="CORPORATE">Corporate / 公司业务</option></select></label>
+        <label><span>{{ locale === 'en-US' ? 'Matter type' : '案件类型' }}</span><select v-model="form.matterType"><option value="CROSS_BORDER">{{ formatLegalCode('CROSS_BORDER', locale) }}</option><option value="LITIGATION">{{ formatLegalCode('LITIGATION', locale) }}</option><option value="ARBITRATION">{{ formatLegalCode('ARBITRATION', locale) }}</option><option value="CORPORATE">{{ formatLegalCode('CORPORATE', locale) }}</option></select></label>
         <label class="full-field"><span>{{ locale === 'en-US' ? 'Matter title' : '案件名称' }}</span><input v-model="form.title" required /></label>
         <label><span>{{ locale === 'en-US' ? 'Responsible counsel' : '承办律师' }}</span><select v-model="form.responsibleUserId"><option v-for="user in users" :key="user.id" :value="user.id">{{ user.displayName }}</option></select></label>
         <label><span>{{ locale === 'en-US' ? 'Lead office' : '承办办公室' }}</span><select :value="form.officeId" @change="selectOffice(($event.target as HTMLSelectElement).value)"><option v-for="office in offices" :key="office.id" :value="office.id">{{ locale === 'en-US' ? office.nameEn : office.nameZh }}</option></select></label>
         <label><span>{{ locale === 'en-US' ? 'Jurisdiction' : '司法辖区' }}</span><input v-model="form.jurisdiction" :placeholder="selectedOffice ? `${selectedOffice.countryCode} · ${selectedOffice.cityEn}` : ''" /></label>
-        <label><span>{{ locale === 'en-US' ? 'Working language' : '工作语言' }}</span><select v-model="form.workingLanguage"><option value="zh-CN">中文 Chinese</option><option value="en-US">English 英文</option><option value="ar">العربية Arabic</option></select></label>
+        <label><span>{{ locale === 'en-US' ? 'Working language' : '工作语言' }}</span><select v-model="form.workingLanguage"><option value="zh-CN">{{ formatLegalCode('zh-CN', locale) }}</option><option value="en-US">{{ formatLegalCode('en-US', locale) }}</option><option value="ar">{{ formatLegalCode('ar', locale) }}</option></select></label>
         <label><span>{{ locale === 'en-US' ? 'Country code' : '国家代码' }}</span><input v-model="form.countryCode" maxlength="2" /></label>
         <label><span>{{ locale === 'en-US' ? 'Billing currency' : '结算币种' }}</span><input v-model="form.billingCurrency" maxlength="3" /></label>
         <button class="primary-action full full-field" type="submit" :disabled="saving">{{ saving ? 'Saving…' : (locale === 'en-US' ? 'Create matter' : '创建案件') }}</button>

@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 
 export type Locale = 'zh-CN' | 'en-US'
 
-const messages: Record<Locale, Record<string, string>> = {
+export const messages: Record<Locale, Record<string, string>> = {
   'zh-CN': {
     'nav.daily': '日常工作',
     'nav.organization': '组织门户',
@@ -223,7 +223,9 @@ const messages: Record<Locale, Record<string, string>> = {
   },
 }
 
-const stored = localStorage.getItem('law_oa_locale')
+const stored = typeof localStorage === 'undefined'
+  ? null
+  : localStorage.getItem('law_oa_locale')
 const locale = ref<Locale>(stored === 'en-US' || stored === 'zh-CN'
   ? stored
   : 'zh-CN')
@@ -234,8 +236,8 @@ function translate(key: string): string {
 
 function setLocale(next: Locale) {
   locale.value = next
-  localStorage.setItem('law_oa_locale', next)
-  document.documentElement.lang = next
+  if (typeof localStorage !== 'undefined') localStorage.setItem('law_oa_locale', next)
+  if (typeof document !== 'undefined') document.documentElement.lang = next
 }
 
 setLocale(locale.value)

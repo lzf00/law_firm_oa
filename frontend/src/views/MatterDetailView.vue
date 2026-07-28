@@ -22,6 +22,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { http } from '@/api/http'
 import type { Matter, Office, OrganizationUser } from '@/api/types'
 import { useI18n } from '@/i18n'
+import { formatLegalCode } from '@/legalFormat'
 
 interface MatterDetail {
   summary: Matter
@@ -286,7 +287,7 @@ onMounted(async () => {
           <div class="matter-number">{{ workspace.detail.summary.matterNumber }}</div>
           <h2>{{ workspace.detail.summary.title }}</h2>
           <p>
-            {{ workspace.detail.summary.matterType }} ·
+            {{ formatLegalCode(workspace.detail.summary.matterType, locale) }} ·
             {{ officeName || workspace.detail.summary.countryCode || '—' }} ·
             {{ workspace.detail.summary.jurisdiction || text('未填写司法辖区', 'Jurisdiction not set') }}
           </p>
@@ -306,7 +307,7 @@ onMounted(async () => {
         </div>
         <div class="hero-status">
           <span>{{ text('案件状态', 'Matter status') }}</span>
-          <strong>{{ workspace.detail.summary.status }}</strong>
+          <strong>{{ formatLegalCode(workspace.detail.summary.status, locale) }}</strong>
           <small>{{ workspace.detail.summary.confidentialityLevel }}</small>
         </div>
       </header>
@@ -325,7 +326,7 @@ onMounted(async () => {
             <div><dt>{{ text('承办律师', 'Responsible counsel') }}</dt><dd>{{ workspace.detail.summary.responsibleName }}</dd></div>
             <div><dt>{{ text('案号 / 法院案号', 'Matter / court no.') }}</dt><dd>{{ workspace.detail.summary.matterNumber }}<span v-if="workspace.detail.caseNumber"> · {{ workspace.detail.caseNumber }}</span></dd></div>
             <div><dt>{{ text('法院 / 机构', 'Court / authority') }}</dt><dd>{{ workspace.detail.courtName || '—' }}</dd></div>
-            <div><dt>{{ text('工作语言 / 币种', 'Language / currency') }}</dt><dd>{{ workspace.detail.summary.workingLanguage }} · {{ workspace.detail.summary.billingCurrency }}</dd></div>
+            <div><dt>{{ text('工作语言 / 币种', 'Language / currency') }}</dt><dd>{{ formatLegalCode(workspace.detail.summary.workingLanguage, locale) }} · {{ workspace.detail.summary.billingCurrency }}</dd></div>
           </dl>
           <p class="matter-description">{{ workspace.detail.description || text('暂无案件说明。', 'No matter description.') }}</p>
           <div class="party-strip">
@@ -340,7 +341,7 @@ onMounted(async () => {
           <div class="workspace-heading"><Users :size="19" /><h3>{{ text('办案团队', 'Matter team') }}</h3></div>
           <ul class="compact-list">
             <li v-for="member in workspace.team" :key="member.userId">
-              <div><strong>{{ member.displayName }}</strong><span>{{ member.memberRole }}</span></div>
+              <div><strong>{{ member.displayName }}</strong><span>{{ formatLegalCode(member.memberRole, locale) }}</span></div>
               <span class="status-pill">{{ member.canDownload ? text('可下载', 'Download') : text('仅查看', 'View only') }}</span>
             </li>
           </ul>
@@ -351,7 +352,7 @@ onMounted(async () => {
           <ul class="compact-list">
             <li v-for="item in workspace.deadlines.slice(0, 6)" :key="item.id">
               <div><strong>{{ item.title }}</strong><span>{{ dateTime(item.dueAt) }} · {{ item.ownerName }}</span></div>
-              <span class="status-pill">{{ item.priority }} · {{ item.status }}</span>
+              <span class="status-pill">{{ formatLegalCode(item.priority, locale) }} · {{ formatLegalCode(item.status, locale) }}</span>
             </li>
             <li v-if="!workspace.deadlines.length" class="list-empty">{{ text('暂无期限', 'No deadlines') }}</li>
           </ul>
@@ -362,7 +363,7 @@ onMounted(async () => {
           <ul class="compact-list">
             <li v-for="item in workspace.contracts" :key="item.id">
               <div><strong>{{ item.title }}</strong><span>{{ item.contractNumber }}<template v-if="item.amount"> · {{ item.currency }} {{ item.amount.toLocaleString() }}</template></span></div>
-              <span class="status-pill">{{ item.status }}</span>
+              <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
             </li>
             <li v-if="!workspace.contracts.length" class="list-empty">{{ text('暂无关联合同', 'No related contracts') }}</li>
           </ul>
@@ -373,11 +374,11 @@ onMounted(async () => {
           <ul class="compact-list">
             <li v-for="item in workspace.approvals.slice(0, 4)" :key="item.id">
               <div><strong>{{ item.processDefinitionKey }}</strong><span>{{ item.businessType }} · {{ dateTime(item.startedAt) }}</span></div>
-              <span class="status-pill">{{ item.decision || item.status }}</span>
+              <span class="status-pill">{{ formatLegalCode(item.decision || item.status, locale) }}</span>
             </li>
             <li v-for="item in workspace.conflicts.slice(0, 4)" :key="item.id">
               <div><strong>{{ item.requestNumber }} · {{ item.proposedMatterTitle }}</strong><span>{{ item.riskLevel || text('待评估', 'Pending review') }}</span></div>
-              <span class="status-pill">{{ item.decision || item.status }}</span>
+              <span class="status-pill">{{ formatLegalCode(item.decision || item.status, locale) }}</span>
             </li>
             <li v-if="!workspace.approvals.length && !workspace.conflicts.length" class="list-empty">
               {{ text('暂无审批或冲突检索记录', 'No approval or conflict records') }}
@@ -392,8 +393,8 @@ onMounted(async () => {
               <h4>{{ text('文档', 'Documents') }}</h4>
               <ul class="compact-list">
                 <li v-for="item in workspace.documents.slice(0, 8)" :key="item.id">
-                  <div><strong>{{ item.logicalName }}</strong><span>{{ item.documentType }} · V{{ item.versionNumber || '—' }}</span></div>
-                  <span class="status-pill">{{ item.versionStatus || item.confidentialityLevel }}</span>
+                  <div><strong>{{ item.logicalName }}</strong><span>{{ formatLegalCode(item.documentType, locale) }} · V{{ item.versionNumber || '—' }}</span></div>
+                  <span class="status-pill">{{ formatLegalCode(item.versionStatus || item.confidentialityLevel, locale) }}</span>
                 </li>
                 <li v-if="!workspace.documents.length" class="list-empty">{{ text('暂无案件文档', 'No matter documents') }}</li>
               </ul>
@@ -403,7 +404,7 @@ onMounted(async () => {
               <ul class="compact-list">
                 <li v-for="item in workspace.archives" :key="item.id">
                   <div><strong>{{ item.title }}</strong><span>{{ item.archiveNumber }} · {{ item.itemCount }} {{ text('份文件', 'files') }}</span></div>
-                  <span class="status-pill">{{ item.status }}</span>
+                  <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
                 </li>
                 <li v-if="!workspace.archives.length" class="list-empty">{{ text('暂无电子卷宗', 'No archives') }}</li>
               </ul>

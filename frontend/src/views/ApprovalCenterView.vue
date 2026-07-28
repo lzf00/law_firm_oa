@@ -11,6 +11,7 @@ import {
 import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
 import { translate as t, useI18n } from '@/i18n'
+import { formatLegalCode } from '@/legalFormat'
 
 interface WorkflowTask {
   id: string
@@ -212,7 +213,7 @@ onMounted(load)
               <span>{{ item.sealName }} · {{ item.copies }} {{ text('份', 'copies') }} · {{ item.requestedByName }}</span>
               <small>{{ new Date(item.createdAt).toLocaleString(locale) }}</small>
             </div>
-            <span class="status-pill">{{ item.status }}</span>
+            <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
           </article>
         </div>
         <div v-else class="empty-state">{{ text('暂无用印申请', 'No seal requests') }}</div>

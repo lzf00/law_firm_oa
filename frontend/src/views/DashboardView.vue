@@ -3,8 +3,11 @@ import { computed, onMounted, ref } from 'vue'
 import { ArrowRight, CalendarDays, CircleAlert, FileSignature, Scale } from '@lucide/vue'
 import { http } from '@/api/http'
 import type { Matter } from '@/api/types'
-import { translate as t } from '@/i18n'
+import { translate as t, useI18n } from '@/i18n'
+import { formatLegalCode } from '@/legalFormat'
 
+const { locale } = useI18n()
+const text = (zh: string, en: string) => locale.value === 'en-US' ? en : zh
 const matters = ref<Matter[]>([])
 const deadlines = ref<Deadline[]>([])
 const workflowTasks = ref<WorkflowTask[]>([])
@@ -48,14 +51,14 @@ onMounted(async () => {
 })
 
 const stats = computed(() => [
-  { label: '在办案件', value: activeMatters.value, trend: '按成员权限统计', icon: Scale },
-  { label: '七日内期限', value: weekDeadlineCount.value, trend: '请优先处理法定期限', icon: CalendarDays, danger: weekDeadlineCount.value > 0 },
-  { label: '待我审批', value: workflowTasks.value.length, trend: '来自流程引擎', icon: FileSignature },
-  { label: '风险提示', value: conflictReviewCount.value, trend: '待完成冲突复核', icon: CircleAlert, danger: conflictReviewCount.value > 0 },
+  { label: text('在办案件', 'Active matters'), value: activeMatters.value, trend: text('按成员权限统计', 'Based on your access'), icon: Scale },
+  { label: text('七日内期限', 'Due in 7 days'), value: weekDeadlineCount.value, trend: text('请优先处理法定期限', 'Prioritize statutory deadlines'), icon: CalendarDays, danger: weekDeadlineCount.value > 0 },
+  { label: text('待我审批', 'My approvals'), value: workflowTasks.value.length, trend: text('来自流程引擎', 'From workflow engine'), icon: FileSignature },
+  { label: text('风险提示', 'Risk alerts'), value: conflictReviewCount.value, trend: text('待完成冲突复核', 'Conflict review required'), icon: CircleAlert, danger: conflictReviewCount.value > 0 },
 ])
 
 function shortDate(value: string) {
-  return new Intl.DateTimeFormat('zh-CN', { month: '2-digit', day: '2-digit' })
+  return new Intl.DateTimeFormat(locale.value, { month: '2-digit', day: '2-digit' })
     .format(new Date(value))
 }
 </script>
@@ -66,14 +69,14 @@ function shortDate(value: string) {
       <div>
         <span class="eyebrow">MONDAY · JUL 27</span>
         <h2>{{ t('headline.dashboard') }}</h2>
-        <p>期限、审批与风险信号已汇总。系统只展示你有权查看的案件内容。</p>
+        <p>{{ text('期限、审批与风险信号已汇总。系统只展示你有权查看的案件内容。', 'Deadlines, approvals and risk signals are consolidated. Only authorized matter content is shown.') }}</p>
       </div>
       <RouterLink to="/matters" class="primary-action">
-        查看全部案件 <ArrowRight :size="17" />
+        {{ text('查看全部案件', 'View all matters') }} <ArrowRight :size="17" />
       </RouterLink>
     </section>
 
-    <section class="stat-grid" aria-label="工作概览">
+    <section class="stat-grid" :aria-label="text('工作概览', 'Work overview')">
       <article v-for="stat in stats" :key="stat.label" class="stat-card">
         <div class="stat-icon" :class="{ danger: stat.danger }"><component :is="stat.icon" :size="20" /></div>
         <span>{{ stat.label }}</span>
@@ -87,12 +90,12 @@ function shortDate(value: string) {
         <div class="panel-heading">
           <div>
             <span class="eyebrow">ACTIVE MATTERS</span>
-            <h3>最近案件</h3>
+            <h3>{{ text('最近案件', 'Recent matters') }}</h3>
           </div>
-          <RouterLink to="/matters">查看全部</RouterLink>
+          <RouterLink to="/matters">{{ text('查看全部', 'View all') }}</RouterLink>
         </div>
-        <div v-if="loading" class="empty-state">正在加载案件…</div>
-        <div v-else-if="matters.length === 0" class="empty-state">尚未创建案件</div>
+        <div v-if="loading" class="empty-state">{{ text('正在加载案件…', 'Loading matters…') }}</div>
+        <div v-else-if="matters.length === 0" class="empty-state">{{ text('尚未创建案件', 'No matters yet') }}</div>
         <RouterLink
           v-for="matter in matters.slice(0, 5)"
           v-else
@@ -103,9 +106,9 @@ function shortDate(value: string) {
           <span class="case-number">{{ matter.matterNumber }}</span>
           <div class="case-main">
             <strong>{{ matter.title }}</strong>
-            <span>{{ matter.matterType }} · {{ matter.responsibleName }}</span>
+            <span>{{ formatLegalCode(matter.matterType, locale) }} · {{ matter.responsibleName }}</span>
           </div>
-          <span class="status-pill">{{ matter.status }}</span>
+          <span class="status-pill">{{ formatLegalCode(matter.status, locale) }}</span>
           <ArrowRight :size="16" />
         </RouterLink>
       </article>
@@ -114,7 +117,7 @@ function shortDate(value: string) {
         <div class="panel-heading">
           <div>
             <span class="eyebrow">UPCOMING</span>
-            <h3>近期节点</h3>
+            <h3>{{ text('近期节点', 'Upcoming deadlines') }}</h3>
           </div>
         </div>
         <ol v-if="deadlines.length" class="timeline">
@@ -122,11 +125,11 @@ function shortDate(value: string) {
             <time>{{ shortDate(deadline.dueAt) }}</time>
             <div><strong>{{ deadline.title }}</strong><span>{{ deadline.matterTitle }}</span></div>
             <span class="priority" :class="{ high: deadline.priority === 'HIGH' }">
-              {{ deadline.priority === 'HIGH' ? '紧急' : deadline.deadlineType }}
+              {{ formatLegalCode(deadline.priority === 'HIGH' ? 'URGENT' : deadline.deadlineType, locale) }}
             </span>
           </li>
         </ol>
-        <div v-else class="empty-state">暂无近期节点</div>
+        <div v-else class="empty-state">{{ text('暂无近期节点', 'No upcoming deadlines') }}</div>
       </article>
     </section>
   </div>

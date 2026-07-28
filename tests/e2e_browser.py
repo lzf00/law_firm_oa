@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 from time import time
 
 from playwright.sync_api import sync_playwright
@@ -7,6 +8,56 @@ from playwright.sync_api import sync_playwright
 BASE_URL = "http://localhost:18080"
 RESULTS = Path(__file__).resolve().parent.parent / "test-results"
 RESULTS.mkdir(exist_ok=True)
+AXE_SOURCE = (
+    Path(__file__).resolve().parent.parent
+    / "frontend"
+    / "node_modules"
+    / "axe-core"
+    / "axe.min.js"
+).read_text(encoding="utf-8")
+
+
+def assert_no_horizontal_overflow(page, label: str) -> None:
+    overflow = page.evaluate(
+        """() => ({
+          viewport: document.documentElement.clientWidth,
+          page: document.documentElement.scrollWidth
+        })"""
+    )
+    assert overflow["page"] <= overflow["viewport"] + 1, (
+        f"{label} 存在页面级横向溢出：{overflow}"
+    )
+
+
+def assert_no_critical_accessibility_violations(page, label: str) -> None:
+    if not page.evaluate("() => Boolean(window.axe)"):
+        page.add_script_tag(content=AXE_SOURCE)
+    result = page.evaluate(
+        """async () => await window.axe.run(document, {
+          runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21aa'] }
+        })"""
+    )
+    critical = [
+        violation
+        for violation in result["violations"]
+        if violation.get("impact") == "critical"
+    ]
+    assert not critical, (
+        f"{label} 存在 critical 无障碍问题："
+        + "; ".join(
+            f"{item['id']}({len(item['nodes'])})" for item in critical
+        )
+    )
+
+
+def assert_english_chrome_has_no_chinese_literals(page, label: str) -> None:
+    candidates = page.locator(
+        "button:not(.language-switch):not(.notification-item), "
+        "label > span, th, .page-intro p:not([data-allow-business-data]), .panel-heading h3, "
+        ".empty-state, .kanban-empty"
+    ).all_inner_texts()
+    chinese = [text.strip() for text in candidates if re.search(r"[\u4e00-\u9fff]", text)]
+    assert not chinese, f"{label} 英文界面仍有未本地化文案：{chinese[:8]}"
 
 
 def main() -> None:
@@ -27,7 +78,7 @@ def main() -> None:
         page.on(
             "response",
             lambda response: http_errors.append(f"{response.status} {response.url}")
-            if response.status >= 400
+            if response.status >= 500
             else None,
         )
 
@@ -68,6 +119,7 @@ def main() -> None:
         for nav_name, heading in routes:
             page.get_by_role("link", name=nav_name, exact=True).click()
             page.get_by_role("heading", name=heading).wait_for()
+            assert_no_horizontal_overflow(page, f"桌面中文 {nav_name}")
 
         page.get_by_role("button", name="Switch to English").click()
         english_routes = [
@@ -91,6 +143,11 @@ def main() -> None:
         for nav_name, heading in english_routes:
             page.get_by_role("link", name=nav_name, exact=True).click()
             page.get_by_role("heading", name=heading).wait_for()
+            assert_no_horizontal_overflow(page, f"desktop English {nav_name}")
+            assert_english_chrome_has_no_chinese_literals(
+                page, f"desktop English {nav_name}"
+            )
+        assert_no_critical_accessibility_violations(page, "desktop English routes")
         page.get_by_role("link", name="Global Offices", exact=True).click()
         page.get_by_role("heading", name="Middle East").wait_for()
         page.get_by_role("heading", name="Dubai Headquarters", exact=True).wait_for()
@@ -137,7 +194,7 @@ def main() -> None:
         matter_dialog.wait_for(state="hidden")
         matter_row = page.locator("tbody tr").filter(has_text=matter_title)
         matter_row.wait_for()
-        matter_row.get_by_text("SAR · en-US", exact=True).wait_for()
+        matter_row.get_by_text("SAR · 英文", exact=True).wait_for()
         page.screenshot(path=RESULTS / "cross-border-matter.png", full_page=True)
 
         page.get_by_role("link", name="客户与主体", exact=True).click()
@@ -248,7 +305,7 @@ def main() -> None:
         lifecycle_dialog.locator("textarea").fill("冲突检索完成，浏览器验收确认立案")
         lifecycle_dialog.get_by_role("button", name="确认变更", exact=True).click()
         page.get_by_text("案件状态已更新").wait_for()
-        page.get_by_text("ACTIVE", exact=True).first.wait_for()
+        page.get_by_text("在办", exact=True).first.wait_for()
         page.screenshot(path=RESULTS / "matter-workspace.png", full_page=True)
 
         page.get_by_role("link", name="公告中心", exact=True).click()
@@ -265,7 +322,7 @@ def main() -> None:
         page.get_by_text(bulletin_title).wait_for()
         page.locator(".announcement-card").filter(
             has_text=bulletin_title
-        ).get_by_text("上海办公室 · PUBLISHED").wait_for()
+        ).get_by_text("上海办公室 · 已发布").wait_for()
         page.get_by_role("dialog").wait_for(state="hidden")
         page.screenshot(path=RESULTS / "announcements-desktop.png", full_page=True)
 
@@ -332,7 +389,7 @@ def main() -> None:
         archive_card = page.locator("article.archive-card").filter(has_text=archive_number)
         archive_card.click()
         archive_dialog = page.get_by_role("dialog")
-        archive_dialog.locator("select").select_option(label="browser-upload · CASE_FILE")
+        archive_dialog.locator("select").select_option(label="browser-upload · 案件文件")
         archive_dialog.get_by_role("button", name="加入卷宗", exact=True).click()
         page.get_by_text("文档已加入卷宗").wait_for()
         archive_dialog.get_by_text("browser-upload", exact=True).wait_for()
@@ -351,19 +408,52 @@ def main() -> None:
 
         mobile = browser.new_context(viewport={"width": 390, "height": 844})
         mobile_page = mobile.new_page()
+        mobile_page.on(
+            "console",
+            lambda message: console_errors.append(f"mobile: {message.text}")
+            if message.type == "error"
+            else None,
+        )
+        mobile_page.on("pageerror", lambda error: page_errors.append(f"mobile: {error}"))
+        mobile_page.on(
+            "response",
+            lambda response: http_errors.append(f"mobile: {response.status} {response.url}")
+            if response.status >= 500
+            else None,
+        )
         mobile_page.goto(BASE_URL, wait_until="networkidle")
         mobile_page.get_by_role("heading", name="进入律所工作台").wait_for()
         mobile_page.screenshot(path=RESULTS / "login-mobile.png", full_page=True)
+        assert_no_horizontal_overflow(mobile_page, "移动中文登录")
+        assert_no_critical_accessibility_violations(mobile_page, "移动中文登录")
         mobile_page.get_by_role("button", name="进入本地演示环境").click()
-        mobile_page.get_by_role("button", name="展开菜单").click()
-        mobile_page.get_by_role("link", name="案件中心", exact=True).wait_for()
+        for nav_name, heading in routes:
+            mobile_page.get_by_role("button", name="展开菜单").click()
+            mobile_page.get_by_role("link", name=nav_name, exact=True).click()
+            mobile_page.get_by_role("heading", name=heading).wait_for()
+            assert_no_horizontal_overflow(mobile_page, f"移动中文 {nav_name}")
         mobile_page.screenshot(path=RESULTS / "dashboard-mobile-menu.png", full_page=True)
+        mobile_page.get_by_role("button", name="Switch to English").click()
+        for nav_name, heading in english_routes:
+            mobile_page.get_by_role("button", name="Open menu").click()
+            mobile_page.get_by_role("link", name=nav_name, exact=True).click()
+            mobile_page.get_by_role("heading", name=heading).wait_for()
+            assert_no_horizontal_overflow(mobile_page, f"mobile English {nav_name}")
+            assert_english_chrome_has_no_chinese_literals(
+                mobile_page, f"mobile English {nav_name}"
+            )
+        assert_no_critical_accessibility_violations(
+            mobile_page, "mobile English routes"
+        )
+        mobile_page.screenshot(
+            path=RESULTS / "dashboard-mobile-english.png", full_page=True
+        )
 
         mobile.close()
         context.close()
         browser.close()
 
-    if console_errors or page_errors:
+    if console_errors or page_errors or http_errors:
         details = "\n".join(
             [
                 *(f"console: {item}" for item in console_errors),
@@ -385,8 +475,10 @@ def main() -> None:
     print("✓ 电子卷宗浏览器端创建、案件关联与文件编目")
     print("✓ 文件浏览器直传（含 CORS）")
     print("✓ 钉钉登录回调缺码保护")
-    print("✓ 登录页和业务页的桌面/移动端布局")
-    print("✓ 控制台和页面运行时错误为 0")
+    print("✓ 16 个业务页中英文 × 桌面/移动端全路由布局巡检")
+    print("✓ 英文界面固定文案无未批准中文、页面无横向溢出")
+    print("✓ 桌面/移动端 WCAG 关键规则无 critical 级问题")
+    print("✓ 控制台、页面运行时和 HTTP 5xx 错误为 0")
 
 
 if __name__ == "__main__":

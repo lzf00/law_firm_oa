@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { clearBrowserSessionAuthentication } from '@/router'
 import {
@@ -31,6 +31,7 @@ import { http } from '@/api/http'
 import type { CurrentUser } from '@/api/types'
 import { useI18n } from '@/i18n'
 import { useTenant } from '@/tenant'
+import { formatLegalCode } from '@/legalFormat'
 
 const route = useRoute()
 const router = useRouter()
@@ -38,6 +39,10 @@ const user = ref<CurrentUser | null>(null)
 const compact = ref(false)
 const notificationOpen = ref(false)
 const notificationLoading = ref(false)
+const notificationDrawer = ref<HTMLElement | null>(null)
+const notificationClose = ref<HTMLButtonElement | null>(null)
+const liveStatus = ref('')
+let previouslyFocused: HTMLElement | null = null
 const unreadCount = ref(0)
 const notifications = ref<NotificationItem[]>([])
 const { locale, t, toggleLocale } = useI18n()
@@ -63,6 +68,18 @@ interface NotificationItem {
 
 watch(() => route.path, () => {
   compact.value = false
+})
+watch(notificationOpen, async (open) => {
+  if (open) {
+    previouslyFocused = document.activeElement instanceof HTMLElement
+      ? document.activeElement
+      : null
+    await nextTick()
+    notificationClose.value?.focus()
+    return
+  }
+  previouslyFocused?.focus()
+  previouslyFocused = null
 })
 watch([title, shortName], () => {
   document.title = `${title.value} · ${shortName.value}`
@@ -128,12 +145,36 @@ async function openNotifications() {
     })
     notifications.value = response.data.items
     await loadUnreadCount()
+    liveStatus.value = locale.value === 'en-US'
+      ? `${notifications.value.length} notifications loaded`
+      : `已加载 ${notifications.value.length} 条通知`
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : (
       locale.value === 'en-US' ? 'Failed to load notifications' : '通知加载失败'
     ))
   } finally {
     notificationLoading.value = false
+  }
+}
+
+function handleNotificationKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') {
+    notificationOpen.value = false
+    return
+  }
+  if (event.key !== 'Tab' || !notificationDrawer.value) return
+  const focusable = Array.from(notificationDrawer.value.querySelectorAll<HTMLElement>(
+    'button:not([disabled]), a[href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+  ))
+  const first = focusable.at(0)
+  const last = focusable.at(-1)
+  if (!first || !last) return
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
   }
 }
 
@@ -215,7 +256,8 @@ async function logout() {
 <template>
   <RouterView v-if="route.meta.standalone" />
   <div v-if="!route.meta.standalone" class="app-shell" :class="{ 'is-compact': compact }">
-    <aside class="sidebar">
+    <a class="skip-link" href="#main-content">{{ locale === 'en-US' ? 'Skip to main content' : '跳到主要内容' }}</a>
+    <aside id="primary-navigation" class="sidebar">
       <div class="brand">
         <div class="brand-mark"><Scale :size="24" /></div>
         <div class="brand-copy">
@@ -224,7 +266,7 @@ async function logout() {
         </div>
       </div>
 
-      <nav class="nav">
+      <nav class="nav" :aria-label="locale === 'en-US' ? 'Primary navigation' : '主导航'">
         <section v-for="group in navGroups" :key="group.titleKey" class="nav-group">
           <div class="nav-heading">{{ t(group.titleKey) }}</div>
           <RouterLink
@@ -250,10 +292,16 @@ async function logout() {
       </div>
     </aside>
 
-    <main class="main">
+    <main id="main-content" class="main" tabindex="-1">
       <header class="topbar">
         <div class="topbar-left">
-          <button class="icon-button mobile-menu" :aria-label="t('shell.menu')" @click="compact = !compact">
+          <button
+            class="icon-button mobile-menu"
+            :aria-label="t('shell.menu')"
+            aria-controls="primary-navigation"
+            :aria-expanded="compact"
+            @click="compact = !compact"
+          >
             <Menu :size="20" />
           </button>
           <div>
@@ -277,7 +325,7 @@ async function logout() {
             <span v-if="unreadCount" class="notification-badge">{{ unreadCount > 99 ? '99+' : unreadCount }}</span>
           </button>
           <div class="profile">
-            <span class="avatar">{{ user?.displayName?.slice(0, 1) ?? '管' }}</span>
+            <span class="avatar">{{ user?.displayName?.slice(0, 1) ?? (locale === 'en-US' ? 'A' : '管') }}</span>
             <div>
               <strong>{{ user?.displayName ?? t('shell.connecting') }}</strong>
               <span>{{ officeName || t('shell.session') }}</span>
@@ -293,12 +341,20 @@ async function logout() {
         <RouterView />
       </div>
     </main>
+    <div class="sr-only" aria-live="polite" aria-atomic="true">{{ liveStatus }}</div>
     <Transition name="drawer">
       <div v-if="notificationOpen" class="notification-layer" @click.self="notificationOpen = false">
-        <aside class="notification-drawer" role="dialog" aria-modal="true" :aria-label="t('shell.notifications')">
+        <aside
+          ref="notificationDrawer"
+          class="notification-drawer"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="t('shell.notifications')"
+          @keydown="handleNotificationKeydown"
+        >
           <header>
             <div><span class="eyebrow">INBOX</span><h2>{{ locale === 'en-US' ? 'Notifications' : '通知中心' }}</h2></div>
-            <button class="icon-button" :aria-label="locale === 'en-US' ? 'Close notifications' : '关闭通知'" @click="notificationOpen = false"><X :size="18" /></button>
+            <button ref="notificationClose" class="icon-button" :aria-label="locale === 'en-US' ? 'Close notifications' : '关闭通知'" @click="notificationOpen = false"><X :size="18" /></button>
           </header>
           <div v-if="notificationLoading" class="empty-state">{{ locale === 'en-US' ? 'Loading…' : '正在加载通知…' }}</div>
           <div v-else-if="notifications.length" class="notification-list">
@@ -313,7 +369,7 @@ async function logout() {
               <span class="notification-copy">
                 <strong>{{ item.title }}</strong>
                 <span>{{ item.content }}</span>
-                <small>{{ new Date(item.createdAt).toLocaleString(locale) }} · {{ item.priority }}</small>
+                <small>{{ new Date(item.createdAt).toLocaleString(locale) }} · {{ formatLegalCode(item.priority, locale) }}</small>
               </span>
             </button>
           </div>

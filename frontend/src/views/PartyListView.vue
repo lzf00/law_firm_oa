@@ -6,6 +6,7 @@ import { useDebounceFn } from '@vueuse/core'
 import { http } from '@/api/http'
 import type { OrganizationUser, Party } from '@/api/types'
 import { translate as t, useI18n } from '@/i18n'
+import { formatLegalCode } from '@/legalFormat'
 
 interface Client {
   id: string
@@ -177,7 +178,7 @@ onMounted(load)
         </div>
         <div class="party-copy">
           <strong>{{ party.displayName }}</strong>
-          <span>{{ party.partyType === 'PERSON' ? (isEnglish ? 'Individual' : '自然人') : (isEnglish ? 'Organization' : '机构主体') }}</span>
+          <span>{{ formatLegalCode(party.partyType, locale) }}</span>
           <small v-if="party.aliases.length">{{ isEnglish ? 'Aliases' : '别名' }}：{{ party.aliases.join('、') }}</small>
         </div>
         <div class="card-actions">
@@ -188,7 +189,7 @@ onMounted(load)
             @click="openClient(party)"
           ><UserRoundCheck :size="15" /> {{ isEnglish ? 'Make client' : '转为客户' }}</button>
         </div>
-        <span class="risk-dot" :class="party.riskLevel.toLowerCase()">{{ party.riskLevel }}</span>
+        <span class="risk-dot" :class="party.riskLevel.toLowerCase()">{{ formatLegalCode(party.riskLevel, locale) }}</span>
       </article>
     </div>
     <div v-if="!loading && parties.length === 0" class="panel empty-state">{{ isEnglish ? 'No matching party' : '未找到匹配主体' }}</div>
@@ -203,7 +204,7 @@ onMounted(load)
         <tbody>
           <tr v-for="client in clients" :key="client.id">
             <td class="mono">{{ client.clientNumber }}</td><td><strong>{{ client.displayName }}</strong></td>
-            <td>{{ client.ownerName || '—' }}</td><td><span class="status-pill">{{ client.status }}</span></td>
+            <td>{{ client.ownerName || '—' }}</td><td><span class="status-pill">{{ formatLegalCode(client.status, locale) }}</span></td>
             <td><button class="table-action" @click="editClient(client)"><Pencil :size="15" /> {{ isEnglish ? 'Edit' : '编辑' }}</button></td>
           </tr>
         </tbody>

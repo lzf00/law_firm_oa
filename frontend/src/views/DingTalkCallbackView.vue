@@ -4,10 +4,13 @@ import { CircleAlert, LoaderCircle, ShieldCheck } from '@lucide/vue'
 import { useRouter } from 'vue-router'
 import { http } from '@/api/http'
 import { markBrowserSessionAuthenticated } from '@/router'
+import { useI18n } from '@/i18n'
 
 const router = useRouter()
+const { locale } = useI18n()
+const text = (zh: string, en: string) => locale.value === 'en-US' ? en : zh
 const state = ref<'loading' | 'error'>('loading')
-const message = ref('正在使用钉钉身份建立安全会话…')
+const message = ref(text('正在使用钉钉身份建立安全会话…', 'Establishing a secure session with DingTalk…'))
 
 onMounted(async () => {
   const query = new URLSearchParams(window.location.search)
@@ -15,7 +18,10 @@ onMounted(async () => {
   const stateToken = query.get('state')
   if (!authorizationCode || !stateToken) {
     state.value = 'error'
-    message.value = '登录回调参数不完整，请返回登录页重新发起钉钉登录。'
+    message.value = text(
+      '登录回调参数不完整，请返回登录页重新发起钉钉登录。',
+      'The sign-in callback is incomplete. Return to the sign-in page and try again.',
+    )
     return
   }
   try {
@@ -28,7 +34,7 @@ onMounted(async () => {
     window.location.reload()
   } catch (error) {
     state.value = 'error'
-    message.value = error instanceof Error ? error.message : '钉钉登录失败'
+    message.value = error instanceof Error ? error.message : text('钉钉登录失败', 'DingTalk sign-in failed')
   }
 })
 </script>
@@ -41,10 +47,10 @@ onMounted(async () => {
         <CircleAlert v-else :size="28" />
       </div>
       <span class="eyebrow">DINGTALK SECURE LOGIN</span>
-      <h1>{{ state === 'loading' ? '正在验证身份' : '无法完成登录' }}</h1>
+      <h1>{{ state === 'loading' ? text('正在验证身份', 'Verifying identity') : text('无法完成登录', 'Sign-in could not be completed') }}</h1>
       <p>{{ message }}</p>
-      <RouterLink v-if="state === 'error'" to="/login" class="callback-link">返回登录页</RouterLink>
-      <div class="secure-note"><ShieldCheck :size="16" /> 授权码仅由服务端向钉钉换取身份</div>
+      <RouterLink v-if="state === 'error'" to="/login" class="callback-link">{{ text('返回登录页', 'Return to sign in') }}</RouterLink>
+      <div class="secure-note"><ShieldCheck :size="16" /> {{ text('授权码仅由服务端向钉钉换取身份', 'Only the server exchanges the authorization code with DingTalk') }}</div>
     </section>
   </main>
 </template>

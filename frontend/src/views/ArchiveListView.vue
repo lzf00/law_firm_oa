@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
 import type { Matter } from '@/api/types'
 import { translate as t, useI18n } from '@/i18n'
+import { formatLegalCode } from '@/legalFormat'
 
 interface ArchiveItem {
   documentId: string
@@ -165,7 +166,7 @@ onMounted(load)
         </p>
         <div class="archive-meta">
           <span>{{ item.itemCount }} {{ text('份文件', 'files') }}</span>
-          <span class="status-pill">{{ item.status }}</span>
+          <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
         </div>
       </article>
     </div>
@@ -216,13 +217,13 @@ onMounted(load)
       <div v-if="selectedArchive" class="archive-manager">
         <div class="archive-manager-meta">
           <span>{{ matterById.get(selectedArchive.matterId || '')?.title || text('未关联案件', 'Unlinked') }}</span>
-          <strong>{{ selectedArchive.retentionPolicyCode }} · {{ selectedArchive.status }}</strong>
+          <strong>{{ formatLegalCode(selectedArchive.retentionPolicyCode, locale) }} · {{ formatLegalCode(selectedArchive.status, locale) }}</strong>
         </div>
         <div class="add-document">
           <select v-model="selectedDocumentId" :disabled="selectedArchive.status !== 'OPEN'">
             <option value="">{{ text('选择待入卷文档', 'Select a document') }}</option>
             <option v-for="document in unfiledDocuments" :key="document.id" :value="document.id">
-              {{ document.logicalName }} · {{ document.documentType }}
+              {{ document.logicalName }} · {{ formatLegalCode(document.documentType, locale) }}
             </option>
           </select>
           <button class="primary-action" :disabled="adding || !selectedDocumentId" @click="addItem">
@@ -232,7 +233,7 @@ onMounted(load)
         <ol v-if="selectedArchive.items.length" class="archive-item-list">
           <li v-for="item in selectedArchive.items" :key="item.documentId">
             <span class="mono">{{ String(item.sequenceNumber).padStart(3, '0') }}</span>
-            <div><strong>{{ item.logicalName }}</strong><small>{{ item.documentType }}</small></div>
+            <div><strong>{{ item.logicalName }}</strong><small>{{ formatLegalCode(item.documentType, locale) }}</small></div>
           </li>
         </ol>
         <div v-else class="empty-state compact-empty">

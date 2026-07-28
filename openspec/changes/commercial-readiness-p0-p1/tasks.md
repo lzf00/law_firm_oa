@@ -28,10 +28,10 @@
 ## 4. P0 Bilingual and Accessible Experience
 
 - [ ] 4.1 Move all customer-facing literals and raw business statuses into the reviewed Chinese/English catalog
-- [ ] 4.2 Add a shared bilingual legal terminology/status formatter and locale completeness tests
-- [ ] 4.3 Add visible focus states, dialog focus management, accessible names, validation associations, and live status messages
-- [ ] 4.4 Fix mobile page overflow, touch targets, navigation, dialogs, and responsive business-list presentation
-- [ ] 4.5 Add both-locale desktop/mobile browser traversal with console, network, literal, and accessibility assertions
+- [x] 4.2 Add a shared bilingual legal terminology/status formatter and locale completeness tests
+- [x] 4.3 Add visible focus states, dialog focus management, accessible names, validation associations, and live status messages
+- [x] 4.4 Fix mobile page overflow, touch targets, navigation, dialogs, and responsive business-list presentation
+- [x] 4.5 Add both-locale desktop/mobile browser traversal with console, network, literal, and accessibility assertions
 
 ## 5. P0 Secure Document Ingestion
 
