@@ -109,7 +109,7 @@ class RequestValidationTest {
 
     @Test
     void validatesArchiveAndSealRequests() {
-        assertInvalid(new CreateArchiveVolumeRequest(" ", "Title", "10Y"), "archiveNumber");
+        assertInvalid(new CreateArchiveVolumeRequest(" ", "Title", "10Y", null), "archiveNumber");
         assertInvalid(new AddArchiveItemRequest(null), "documentId");
         assertInvalid(new CreateSealRequest(ID, null, null, "Purpose", 0), "copies");
     }

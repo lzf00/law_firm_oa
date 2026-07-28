@@ -53,6 +53,10 @@ async function load() {
     deadlines.value = deadlineResponse.data
     matters.value = matterResponse.data
     users.value = userResponse.data
+    if (dialogVisible.value) {
+      if (!form.matterId) form.matterId = matters.value[0]?.id ?? ''
+      if (!form.ownerUserId) form.ownerUserId = users.value[0]?.id ?? ''
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : (isEnglish.value ? 'Could not load deadlines' : '期限加载失败'))
   } finally {
@@ -144,7 +148,7 @@ onMounted(load)
         <h2>{{ t('headline.deadlines') }}</h2>
         <p>{{ isEnglish ? 'Separate statutory deadlines from internal tasks and configure progressive reminders.' : '法定期限与内部任务分开标识，并可配置逐级提醒。' }}</p>
       </div>
-      <button class="primary-action" @click="openForm()"><Plus :size="17" /> {{ isEnglish ? 'New deadline' : '新建期限' }}</button>
+      <button class="primary-action" :disabled="loading" @click="openForm()"><Plus :size="17" /> {{ isEnglish ? 'New deadline' : '新建期限' }}</button>
     </div>
 
     <div class="deadline-board panel">

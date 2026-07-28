@@ -4,6 +4,7 @@ import { useTenant } from '@/tenant'
 const LoginView = () => import('@/views/LoginView.vue')
 const DashboardView = () => import('@/views/DashboardView.vue')
 const MatterListView = () => import('@/views/MatterListView.vue')
+const MatterDetailView = () => import('@/views/MatterDetailView.vue')
 const PartyListView = () => import('@/views/PartyListView.vue')
 const ConflictView = () => import('@/views/ConflictView.vue')
 const ContractListView = () => import('@/views/ContractListView.vue')
@@ -37,6 +38,12 @@ const router = createRouter({
     },
     { path: '/', name: 'dashboard', component: DashboardView, meta: { titleKey: 'page.dashboard' } },
     { path: '/matters', name: 'matters', component: MatterListView, meta: { titleKey: 'page.matters' } },
+    {
+      path: '/matters/:id',
+      name: 'matter-detail',
+      component: MatterDetailView,
+      meta: { titleKey: 'page.matters' },
+    },
     { path: '/parties', name: 'parties', component: PartyListView, meta: { titleKey: 'page.parties' } },
     { path: '/conflicts', name: 'conflicts', component: ConflictView, meta: { titleKey: 'page.conflicts' } },
     {

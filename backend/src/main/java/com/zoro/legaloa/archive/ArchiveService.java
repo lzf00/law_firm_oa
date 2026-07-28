@@ -2,6 +2,7 @@ package com.zoro.legaloa.archive;
 
 import com.zoro.legaloa.archive.ArchiveController.AddArchiveItemRequest;
 import com.zoro.legaloa.archive.ArchiveController.ArchiveVolumeView;
+import com.zoro.legaloa.archive.ArchiveController.ArchiveItemView;
 import com.zoro.legaloa.archive.ArchiveController.CreateArchiveVolumeRequest;
 import com.zoro.legaloa.common.AuditService;
 import com.zoro.legaloa.common.BusinessException;
@@ -35,10 +36,10 @@ public class ArchiveService {
     }
 
     @Transactional(readOnly = true)
-    public List<ArchiveVolumeView> list() {
+    public List<ArchiveVolumeView> list(UUID matterId) {
         RequestActor actor = actorProvider.current();
-        return jdbcClient.sql("""
-                        SELECT av.id, av.archive_number, av.title,
+        List<ArchiveVolumeView> volumes = jdbcClient.sql("""
+                        SELECT av.id, av.archive_number, av.title, av.matter_id,
                                av.retention_policy_code, av.status, av.archived_at,
                                u.display_name AS created_by_name, av.created_at,
                                COUNT(ai.document_id) AS item_count
@@ -46,41 +47,71 @@ public class ArchiveService {
                         JOIN users u ON u.id = av.created_by
                         LEFT JOIN archive_items ai ON ai.archive_volume_id = av.id
                         WHERE av.organization_id = :organizationId
+                          AND (:allMatters OR av.matter_id = :matterId)
+                          AND (
+                            av.matter_id IS NULL
+                            OR EXISTS (
+                              SELECT 1 FROM matter_members mm
+                              WHERE mm.matter_id = av.matter_id
+                                AND mm.user_id = :userId AND mm.left_at IS NULL
+                            )
+                            OR EXISTS (
+                              SELECT 1 FROM user_roles ur
+                              JOIN roles r ON r.id = ur.role_id
+                              WHERE ur.user_id = :userId
+                                AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
+                            )
+                          )
                         GROUP BY av.id, u.display_name
                         ORDER BY av.created_at DESC
                         LIMIT 200
                         """)
                 .param("organizationId", actor.organizationId())
+                .param("userId", actor.userId())
+                .param("allMatters", matterId == null)
+                .param("matterId", matterId == null ? new UUID(0, 0) : matterId)
                 .query((rs, rowNum) -> new ArchiveVolumeView(
                         rs.getObject("id", UUID.class),
                         rs.getString("archive_number"),
                         rs.getString("title"),
+                        rs.getObject("matter_id", UUID.class),
                         rs.getString("retention_policy_code"),
                         rs.getString("status"),
                         rs.getTimestamp("archived_at") == null
                                 ? null : rs.getTimestamp("archived_at").toInstant(),
                         rs.getString("created_by_name"),
                         rs.getTimestamp("created_at").toInstant(),
-                        rs.getInt("item_count")
+                        rs.getInt("item_count"),
+                        List.of()
                 ))
                 .list();
+        return volumes.stream().map(volume -> new ArchiveVolumeView(
+                volume.id(), volume.archiveNumber(), volume.title(), volume.matterId(),
+                volume.retentionPolicyCode(), volume.status(), volume.archivedAt(),
+                volume.createdByName(), volume.createdAt(), volume.itemCount(),
+                items(volume.id())
+        )).toList();
     }
 
     @Transactional
     public ArchiveVolumeView create(CreateArchiveVolumeRequest request) {
         RequestActor actor = actorProvider.current();
+        if (request.matterId() != null) {
+            accessService.requireContextWrite(actor, request.matterId(), null);
+        }
         UUID archiveId = jdbcClient.sql("""
                         INSERT INTO archive_volumes
-                            (organization_id, archive_number, title,
+                            (organization_id, archive_number, title, matter_id,
                              retention_policy_code, created_by)
                         VALUES
-                            (:organizationId, :archiveNumber, :title,
+                            (:organizationId, :archiveNumber, :title, :matterId,
                              :retentionPolicyCode, :createdBy)
                         RETURNING id
                         """)
                 .param("organizationId", actor.organizationId())
                 .param("archiveNumber", request.archiveNumber().trim())
                 .param("title", request.title().trim())
+                .param("matterId", request.matterId())
                 .param("retentionPolicyCode", request.retentionPolicyCode().trim())
                 .param("createdBy", actor.userId())
                 .query(UUID.class)
@@ -107,6 +138,7 @@ public class ArchiveService {
                           AND av.status = 'OPEN'
                           AND d.organization_id = :organizationId
                           AND d.deleted_at IS NULL
+                          AND (av.matter_id IS NULL OR d.matter_id = av.matter_id)
                         ON CONFLICT DO NOTHING
                         """)
                 .param("archiveId", archiveId)
@@ -123,11 +155,29 @@ public class ArchiveService {
     }
 
     private ArchiveVolumeView requireView(UUID archiveId) {
-        return list().stream()
+        return list(null).stream()
                 .filter(item -> item.id().equals(archiveId))
                 .findFirst()
                 .orElseThrow(() -> new BusinessException(
                         "ARCHIVE_NOT_FOUND", "卷宗不存在", HttpStatus.NOT_FOUND
                 ));
+    }
+
+    private List<ArchiveItemView> items(UUID archiveId) {
+        return jdbcClient.sql("""
+                        SELECT d.id, d.logical_name, d.document_type, ai.sequence_number
+                        FROM archive_items ai
+                        JOIN documents d ON d.id = ai.document_id
+                        WHERE ai.archive_volume_id = :archiveId AND d.deleted_at IS NULL
+                        ORDER BY ai.sequence_number
+                        """)
+                .param("archiveId", archiveId)
+                .query((rs, rowNum) -> new ArchiveItemView(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("logical_name"),
+                        rs.getString("document_type"),
+                        rs.getInt("sequence_number")
+                ))
+                .list();
     }
 }

@@ -6,6 +6,8 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.time.Instant;
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,9 +22,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/matters")
 public class MatterController {
     private final MatterService matterService;
+    private final MatterWorkspaceService matterWorkspaceService;
 
-    public MatterController(MatterService matterService) {
+    public MatterController(
+            MatterService matterService,
+            MatterWorkspaceService matterWorkspaceService
+    ) {
         this.matterService = matterService;
+        this.matterWorkspaceService = matterWorkspaceService;
     }
 
     @GetMapping
@@ -33,6 +40,11 @@ public class MatterController {
     @GetMapping("/{id}")
     MatterDetail get(@PathVariable UUID id) {
         return matterService.get(id);
+    }
+
+    @GetMapping("/{id}/workspace")
+    MatterWorkspace workspace(@PathVariable UUID id) {
+        return matterWorkspaceService.get(id);
     }
 
     @PostMapping
@@ -97,5 +109,64 @@ public class MatterController {
             String partyName,
             String partyRole,
             String side
+    ) {}
+
+    public record MatterWorkspace(
+            MatterDetail detail,
+            List<MatterMemberView> team,
+            List<ConflictReference> conflicts,
+            List<ContractReference> contracts,
+            List<ApprovalReference> approvals,
+            List<com.zoro.legaloa.archive.ArchiveController.ArchiveVolumeView> archives,
+            List<com.zoro.legaloa.matter.DeadlineController.DeadlineView> deadlines,
+            List<com.zoro.legaloa.document.DocumentController.DocumentView> documents,
+            List<MatterEventView> activity
+    ) {}
+
+    public record MatterMemberView(
+            UUID userId,
+            String displayName,
+            String memberRole,
+            boolean canDownload,
+            Instant joinedAt
+    ) {}
+
+    public record ConflictReference(
+            UUID id,
+            String requestNumber,
+            String proposedMatterTitle,
+            String status,
+            String riskLevel,
+            String decision,
+            Instant createdAt
+    ) {}
+
+    public record ContractReference(
+            UUID id,
+            String contractNumber,
+            String title,
+            String status,
+            BigDecimal amount,
+            String currency
+    ) {}
+
+    public record ApprovalReference(
+            UUID id,
+            String businessType,
+            UUID businessId,
+            String processDefinitionKey,
+            String status,
+            String decision,
+            Instant startedAt,
+            Instant completedAt
+    ) {}
+
+    public record MatterEventView(
+            UUID id,
+            String eventType,
+            String title,
+            String description,
+            Instant eventAt,
+            String createdByName
     ) {}
 }

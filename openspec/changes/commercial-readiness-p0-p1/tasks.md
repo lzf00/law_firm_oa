@@ -18,11 +18,11 @@
 - [x] 3.1 Implement localized create/edit forms for parties and clients with validation and list refresh
 - [x] 3.2 Implement localized create/edit forms for contracts and contract workflow submission
 - [x] 3.3 Implement localized create/edit forms for deadlines with ownership, reminders, and matter linkage
-- [ ] 3.4 Add the matter detail route and authorized overview for parties, conflicts, team, contracts, deadlines, documents, approvals, activity, and archive state
+- [x] 3.4 Add the matter detail route and authorized overview for parties, conflicts, team, contracts, deadlines, documents, approvals, activity, and archive state
 - [ ] 3.5 Wire matter status filters, search, edit, and lifecycle actions and remove all no-op controls
 - [ ] 3.6 Add approval reject-reason, transfer-eligibility, reminder-rate-limit, and action feedback UI
 - [ ] 3.7 Add the notification drawer, unread count, mark-read actions, authorized deep links, and inaccessible-target behavior
-- [ ] 3.8 Add archive-item management and link it to matter detail and document access rules
+- [x] 3.8 Add archive-item management and link it to matter detail and document access rules
 - [ ] 3.9 Add unit, API, and browser tests for all P0 workflow success, validation, and authorization paths
 
 ## 4. P0 Bilingual and Accessible Experience

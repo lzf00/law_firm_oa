@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestParam;
 
 @RestController
 @RequestMapping("/api/archives")
@@ -24,8 +25,8 @@ public class ArchiveController {
     }
 
     @GetMapping
-    List<ArchiveVolumeView> list() {
-        return archiveService.list();
+    List<ArchiveVolumeView> list(@RequestParam(required = false) UUID matterId) {
+        return archiveService.list(matterId);
     }
 
     @PostMapping
@@ -44,7 +45,8 @@ public class ArchiveController {
     public record CreateArchiveVolumeRequest(
             @NotBlank @Size(max = 100) String archiveNumber,
             @NotBlank @Size(max = 300) String title,
-            @NotBlank @Size(max = 80) String retentionPolicyCode
+            @NotBlank @Size(max = 80) String retentionPolicyCode,
+            UUID matterId
     ) {}
 
     public record AddArchiveItemRequest(@NotNull UUID documentId) {}
@@ -53,11 +55,20 @@ public class ArchiveController {
             UUID id,
             String archiveNumber,
             String title,
+            UUID matterId,
             String retentionPolicyCode,
             String status,
             Instant archivedAt,
             String createdByName,
             Instant createdAt,
-            int itemCount
+            int itemCount,
+            List<ArchiveItemView> items
+    ) {}
+
+    public record ArchiveItemView(
+            UUID documentId,
+            String logicalName,
+            String documentType,
+            int sequenceNumber
     ) {}
 }

@@ -65,6 +65,9 @@ async function load() {
     clients.value = clientResponse.data
     matters.value = matterResponse.data
     users.value = userResponse.data
+    if (dialogVisible.value && !form.responsibleUserId) {
+      form.responsibleUserId = users.value[0]?.id ?? ''
+    }
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : (isEnglish.value ? 'Could not load contracts' : '合同加载失败'))
   } finally {
@@ -154,7 +157,7 @@ onMounted(load)
         <h2>{{ t('headline.contracts') }}</h2>
         <p>{{ isEnglish ? 'Contract access is independent from matter access and every review remains traceable.' : '合同权限独立于案件，可关联多个案件，每次评审均保留完整记录。' }}</p>
       </div>
-      <button class="primary-action" @click="openForm()"><Plus :size="17" /> {{ isEnglish ? 'New contract' : '新建合同' }}</button>
+      <button class="primary-action" :disabled="loading" @click="openForm()"><Plus :size="17" /> {{ isEnglish ? 'New contract' : '新建合同' }}</button>
     </div>
 
     <div class="panel table-panel">

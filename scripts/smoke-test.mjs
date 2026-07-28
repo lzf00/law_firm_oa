@@ -342,6 +342,15 @@ await check('合同创建、编辑与案件关联', async () => {
   assert(updated.title.includes('更新') && updated.matterCount === 1, '合同编辑或案件关联未生效')
 })
 
+await check('案件工作台聚合与权限范围', async () => {
+  const workspace = await api(`/matters/${createdMatter.summary.id}/workspace`)
+  assert(workspace.detail.summary.id === createdMatter.summary.id, '案件工作台返回了错误案件')
+  assert(workspace.team.some((member) => member.userId === adminId), '案件工作台缺少承办团队')
+  assert(workspace.deadlines.some((item) => item.title.includes('验收期限更新')), '案件工作台缺少期限')
+  assert(workspace.contracts.some((item) => item.title.includes('验收合同更新')), '案件工作台缺少关联合同')
+  assert(Array.isArray(workspace.documents) && Array.isArray(workspace.archives), '案件工作台聚合结构不完整')
+})
+
 await check('私有对象存储直传、落库与下载授权', async () => {
   const bytes = Buffer.from(`律师事务所 OA 文档验收 ${nonce}\n`, 'utf8')
   const sha256 = createHash('sha256').update(bytes).digest('hex')
@@ -457,6 +466,7 @@ await check('电子卷宗建卷与卷内文件编目', async () => {
       archiveNumber: `TEST-AJ-${nonce}`,
       title: `自动化验收卷宗-${nonce}`,
       retentionPolicyCode: 'LITIGATION_10Y',
+      matterId: seededMatterId,
     }),
   })
   createdArchive = await api(`/archives/${createdArchive.id}/items`, {
@@ -464,6 +474,8 @@ await check('电子卷宗建卷与卷内文件编目', async () => {
     body: JSON.stringify({ documentId: createdDocument.id }),
   })
   assert(createdArchive.itemCount === 1, '卷内文件计数不正确')
+  assert(createdArchive.matterId === seededMatterId, '卷宗未绑定案件')
+  assert(createdArchive.items.some((item) => item.documentId === createdDocument.id), '卷内文件目录缺失')
 })
 
 await check('公告发布、范围可见与已读回执', async () => {

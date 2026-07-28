@@ -5,6 +5,7 @@ import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
 import type { CurrentUser, Matter, Office } from '@/api/types'
 import { translate as t, useI18n } from '@/i18n'
+import { useRouter } from 'vue-router'
 
 const matters = ref<Matter[]>([])
 const offices = ref<Office[]>([])
@@ -14,6 +15,7 @@ const query = ref('')
 const dialogVisible = ref(false)
 const saving = ref(false)
 const { locale } = useI18n()
+const router = useRouter()
 const form = reactive({
   matterNumber: '',
   title: '',
@@ -116,7 +118,14 @@ onMounted(load)
           <tr><th>案号 / No.</th><th>案件 / Matter</th><th>办公室 / Office</th><th>司法辖区 / Jurisdiction</th><th>承办律师 / Counsel</th><th>状态 / Status</th></tr>
         </thead>
         <tbody>
-          <tr v-for="matter in matters.filter((item) => `${item.matterNumber}${item.title}${item.responsibleName}`.includes(query))" :key="matter.id">
+          <tr
+            v-for="matter in matters.filter((item) => `${item.matterNumber}${item.title}${item.responsibleName}`.toLowerCase().includes(query.toLowerCase()))"
+            :key="matter.id"
+            class="clickable-row"
+            tabindex="0"
+            @click="router.push(`/matters/${matter.id}`)"
+            @keydown.enter="router.push(`/matters/${matter.id}`)"
+          >
             <td><span class="mono">{{ matter.matterNumber }}</span></td>
             <td><strong>{{ matter.title }}</strong><small>{{ matter.confidentialityLevel }}</small></td>
             <td><strong>{{ locale === 'en-US' ? matter.officeNameEn : matter.officeNameZh }}</strong><small>{{ matter.billingCurrency }} · {{ matter.workingLanguage }}</small></td>
@@ -153,3 +162,9 @@ onMounted(load)
     </ElDialog>
   </section>
 </template>
+
+<style scoped>
+.clickable-row { cursor: pointer; }
+.clickable-row:hover { background: white; }
+.clickable-row:focus-visible { outline: 2px solid var(--brass); outline-offset: -2px; }
+</style>

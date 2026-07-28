@@ -186,6 +186,17 @@ def main() -> None:
         deadline_dialog.wait_for(state="hidden")
         page.get_by_text(deadline_title, exact=True).wait_for()
 
+        page.get_by_role("link", name="案件中心", exact=True).click()
+        matter_row = page.locator("tbody tr").filter(has_text=matter_title)
+        matter_row.click()
+        page.get_by_role("heading", name=matter_title, exact=True).wait_for()
+        page.get_by_role("heading", name="案件概览", exact=True).wait_for()
+        page.get_by_role("heading", name="办案团队", exact=True).wait_for()
+        page.get_by_role("heading", name="关键期限", exact=True).wait_for()
+        page.get_by_text(deadline_title, exact=True).wait_for()
+        page.get_by_text(contract_title, exact=True).wait_for()
+        page.screenshot(path=RESULTS / "matter-workspace.png", full_page=True)
+
         page.get_by_role("link", name="公告中心", exact=True).click()
         page.get_by_role("button", name="发布公告").click()
         bulletin_title = f"浏览器验收公告-{int(time())}"
@@ -216,6 +227,9 @@ def main() -> None:
         page.get_by_role("link", name="电子卷宗", exact=True).click()
         page.get_by_role("button", name="新建卷宗").click()
         archive_number = f"UI-AJ-{int(time())}"
+        page.get_by_test_id("archive-matter").select_option(
+            label=f"{matter_number} · {matter_title}"
+        )
         page.get_by_placeholder("如 AJ-2026-008").fill(archive_number)
         page.get_by_placeholder("案件或专项名称").fill("浏览器端验收卷宗")
         page.get_by_role("button", name="确认建卷").click()
@@ -223,7 +237,7 @@ def main() -> None:
         page.get_by_text(archive_number).wait_for()
 
         page.get_by_role("link", name="文档中心", exact=True).click()
-        page.locator("select").select_option("00000000-0000-0000-0006-000000000001")
+        page.locator("select").select_option(label=f"{matter_number} · {matter_title}")
         upload_input = page.locator('input[type="file"]')
         upload_input.wait_for(state="attached")
         assert upload_input.is_enabled(), "文档上传控件仍处于禁用状态"
@@ -233,6 +247,18 @@ def main() -> None:
         page.get_by_text("文件已安全入库并创建第 1 个版本").wait_for(timeout=20_000)
         page.get_by_text("browser-upload").first.wait_for()
         page.screenshot(path=RESULTS / "documents-after-upload.png", full_page=True)
+
+        page.get_by_role("link", name="电子卷宗", exact=True).click()
+        archive_card = page.locator("article.archive-card").filter(has_text=archive_number)
+        archive_card.click()
+        archive_dialog = page.get_by_role("dialog")
+        archive_dialog.locator("select").select_option(label="browser-upload · CASE_FILE")
+        archive_dialog.get_by_role("button", name="加入卷宗", exact=True).click()
+        page.get_by_text("文档已加入卷宗").wait_for()
+        archive_dialog.get_by_text("browser-upload", exact=True).wait_for()
+        archive_dialog.get_by_text("001", exact=True).wait_for()
+        page.keyboard.press("Escape")
+        archive_dialog.wait_for(state="hidden")
 
         page.get_by_role("button", name="退出登录").click()
         page.get_by_role("heading", name="进入律所工作台").wait_for()
@@ -271,9 +297,10 @@ def main() -> None:
     print("✓ 12 个全球办公室、时区与当地币种展示")
     print("✓ 分所成员临时授权、成员列表与撤销操作")
     print("✓ 浏览器创建利雅得英文跨境案件")
+    print("✓ 案件工作台聚合展示团队、期限与合同")
     print("✓ 上海办公室公告浏览器端定向发布")
     print("✓ 协作任务浏览器端创建")
-    print("✓ 电子卷宗浏览器端创建")
+    print("✓ 电子卷宗浏览器端创建、案件关联与文件编目")
     print("✓ 文件浏览器直传（含 CORS）")
     print("✓ 钉钉登录回调缺码保护")
     print("✓ 登录页和业务页的桌面/移动端布局")
