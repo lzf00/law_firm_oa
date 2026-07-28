@@ -58,7 +58,7 @@
 - [x] 7.1 Run all backend unit/integration tests and generate package-level coverage evidence
 - [x] 7.2 Run frontend unit tests and both-locale desktop/mobile Playwright acceptance with zero critical accessibility violations
 - [x] 7.3 Run API smoke, tenant-isolation, file-security, dependency/image, production-config, backup/restore, and rollback checks
-- [ ] 7.4 Publish the P0 release candidate and document remaining customer-resource-dependent acceptance items
+- [x] 7.4 Publish the P0 release candidate and document remaining customer-resource-dependent acceptance items
 
 ## 8. P1 Pagination and Document Governance
 
@@ -104,4 +104,4 @@
 - [x] 12.1 Run the complete backend, frontend, API, browser, security, accessibility, load, production, backup/restore, and rollback suite
 - [ ] 12.2 Conduct a two-locale role-based user acceptance rehearsal for lawyer, partner, finance, HR/office, records, and administrator personas
 - [x] 12.3 Produce the commercial release report, known limitations, operations handover, support runbook, and customer resource checklist
-- [ ] 12.4 Publish the P1 release candidate to the authorized GitHub repository with immutable version and evidence links
+- [x] 12.4 Publish the P1 release candidate to the authorized GitHub repository with immutable version and evidence links
