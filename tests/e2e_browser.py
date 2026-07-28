@@ -125,8 +125,9 @@ def main() -> None:
         page.get_by_role("link", name="案件中心", exact=True).click()
         page.get_by_role("button", name="新建案件").click()
         matter_title = f"浏览器跨境案件-{int(time())}"
+        matter_number = f"UI-ML-{int(time())}"
         matter_dialog = page.get_by_role("dialog")
-        matter_dialog.locator("input").nth(0).fill(f"UI-ML-{int(time())}")
+        matter_dialog.locator("input").nth(0).fill(matter_number)
         matter_dialog.locator("input").nth(1).fill(matter_title)
         matter_dialog.locator("select").nth(2).select_option("00000000-0000-0000-0012-000000000002")
         matter_dialog.locator("input").nth(2).fill("Kingdom of Saudi Arabia / 沙特阿拉伯")
@@ -138,6 +139,52 @@ def main() -> None:
         matter_row.wait_for()
         matter_row.get_by_text("SAR · en-US", exact=True).wait_for()
         page.screenshot(path=RESULTS / "cross-border-matter.png", full_page=True)
+
+        page.get_by_role("link", name="客户与主体", exact=True).click()
+        page.get_by_role("button", name="新建主体", exact=True).click()
+        party_name = f"浏览器验收客户-{int(time())}"
+        party_dialog = page.get_by_role("dialog")
+        party_dialog.locator("input").nth(1).fill(party_name)
+        party_dialog.locator("input").nth(2).fill(f"浏览器别名-{int(time())}")
+        page.get_by_role("button", name="保存主体", exact=True).click()
+        page.get_by_text("主体已保存").wait_for()
+        party_dialog.wait_for(state="hidden")
+        party_card = page.locator("article.party-card").filter(has_text=party_name)
+        party_card.wait_for()
+        party_card.get_by_role("button", name="转为客户").click()
+        client_dialog = page.get_by_role("dialog")
+        client_number = f"UI-CL-{int(time())}"
+        client_dialog.locator("input").nth(0).fill(client_number)
+        page.get_by_role("button", name="保存客户", exact=True).click()
+        page.get_by_text("客户档案已保存").wait_for()
+        client_dialog.wait_for(state="hidden")
+        page.get_by_text(client_number, exact=True).wait_for()
+
+        page.get_by_role("link", name="合同管理", exact=True).click()
+        page.get_by_role("button", name="新建合同", exact=True).click()
+        contract_dialog = page.get_by_role("dialog")
+        contract_number = f"UI-CT-{int(time())}"
+        contract_title = f"浏览器验收合同-{int(time())}"
+        contract_dialog.locator("input").nth(0).fill(contract_number)
+        contract_dialog.locator("input").nth(2).fill(contract_title)
+        contract_dialog.locator("select").nth(0).select_option(label=f"{client_number} · {party_name}")
+        contract_dialog.locator("select").nth(2).select_option(label=f"{matter_number} · {matter_title}")
+        page.get_by_role("button", name="保存合同", exact=True).click()
+        page.get_by_text("合同已保存").wait_for()
+        contract_dialog.wait_for(state="hidden")
+        page.get_by_text(contract_title, exact=True).wait_for()
+
+        page.get_by_role("link", name="期限管理", exact=True).click()
+        page.get_by_role("button", name="新建期限", exact=True).click()
+        deadline_dialog = page.get_by_role("dialog")
+        deadline_title = f"浏览器验收期限-{int(time())}"
+        deadline_dialog.locator("select").nth(0).select_option(label=f"{matter_number} · {matter_title}")
+        deadline_dialog.locator("input").nth(0).fill(deadline_title)
+        deadline_dialog.locator('input[type="datetime-local"]').fill("2027-12-31T18:00")
+        page.get_by_role("button", name="保存期限", exact=True).click()
+        page.get_by_text("期限已保存").wait_for()
+        deadline_dialog.wait_for(state="hidden")
+        page.get_by_text(deadline_title, exact=True).wait_for()
 
         page.get_by_role("link", name="公告中心", exact=True).click()
         page.get_by_role("button", name="发布公告").click()

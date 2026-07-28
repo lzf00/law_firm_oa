@@ -218,6 +218,26 @@ await check('主体建档与客户转化', async () => {
     }),
   })
   assert(createdClient.partyId === createdParty.id, '客户未关联新主体')
+  const updatedParty = await api(`/parties/${createdParty.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      partyType: 'ORGANIZATION',
+      displayName: `验收客户更新-${nonce}`,
+      aliases: [`验收别名更新-${nonce}`],
+      notes: '验证主体编辑、别名替换与列表刷新',
+    }),
+  })
+  assert(updatedParty.displayName.includes('更新'), '主体编辑未生效')
+  const updatedClient = await api(`/clients/${createdClient.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      partyId: createdParty.id,
+      clientNumber: `TEST-CL-${nonce}`,
+      ownerUserId: adminId,
+      source: 'SMOKE_TEST_UPDATED',
+    }),
+  })
+  assert(updatedClient.id === createdClient.id, '客户编辑未保持原记录')
 })
 
 await check('利益冲突检索', async () => {
@@ -272,9 +292,54 @@ await check('案件期限创建', async () => {
       deadlineType: 'INTERNAL_TASK',
       ownerUserId: adminId,
       priority: 'HIGH',
+      reminderDaysBefore: [7, 3, 1],
     }),
   })
   assert(deadline.matterId === createdMatter.summary.id, '期限未关联案件')
+  const updated = await api(`/deadlines/${deadline.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      matterId: createdMatter.summary.id,
+      title: `验收期限更新-${nonce}`,
+      dueAt: new Date(Date.now() + 8 * 86400000).toISOString(),
+      deadlineType: 'INTERNAL_TASK',
+      ownerUserId: adminId,
+      priority: 'URGENT',
+      reminderDaysBefore: [5, 2, 1],
+    }),
+  })
+  assert(updated.title.includes('更新'), '期限编辑未生效')
+  assert(updated.reminderPolicy.includes('[5, 2, 1]') || updated.reminderPolicy.includes('[5,2,1]'), '提醒策略未保存')
+})
+
+await check('合同创建、编辑与案件关联', async () => {
+  const created = await api('/contracts', {
+    method: 'POST',
+    body: JSON.stringify({
+      contractNumber: `TEST-CT-${nonce}`,
+      title: `验收合同-${nonce}`,
+      clientId: createdClient.id,
+      responsibleUserId: adminId,
+      amount: 125000,
+      currency: 'CNY',
+      matterIds: [createdMatter.summary.id],
+    }),
+  })
+  assert(created.matterIds.includes(createdMatter.summary.id), '合同未关联案件')
+  const updated = await api(`/contracts/${created.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      contractNumber: `TEST-CT-${nonce}`,
+      title: `验收合同更新-${nonce}`,
+      clientId: createdClient.id,
+      responsibleUserId: adminId,
+      effectiveDate: new Date().toISOString().slice(0, 10),
+      amount: 128000,
+      currency: 'CNY',
+      matterIds: [createdMatter.summary.id],
+    }),
+  })
+  assert(updated.title.includes('更新') && updated.matterCount === 1, '合同编辑或案件关联未生效')
 })
 
 await check('私有对象存储直传、落库与下载授权', async () => {

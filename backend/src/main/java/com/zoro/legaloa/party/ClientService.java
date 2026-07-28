@@ -79,6 +79,53 @@ public class ClientService {
         return list().stream().filter(item -> item.id().equals(id)).findFirst().orElseThrow();
     }
 
+    @Transactional
+    public ClientView update(UUID id, CreateClientRequest request) {
+        RequestActor actor = actorProvider.current();
+        int updated = jdbcClient.sql("""
+                        UPDATE clients c
+                        SET party_id = :partyId,
+                            client_number = :clientNumber,
+                            owner_user_id = :ownerUserId,
+                            source = :source,
+                            updated_at = now()
+                        WHERE c.id = :id AND c.deleted_at IS NULL
+                          AND EXISTS (
+                              SELECT 1 FROM parties current_party
+                              WHERE current_party.id = c.party_id
+                                AND current_party.organization_id = :organizationId
+                                AND current_party.deleted_at IS NULL
+                          )
+                          AND EXISTS (
+                              SELECT 1 FROM parties target_party
+                              WHERE target_party.id = :partyId
+                                AND target_party.organization_id = :organizationId
+                                AND target_party.deleted_at IS NULL
+                          )
+                          AND (:noOwner OR EXISTS (
+                              SELECT 1 FROM users u
+                              WHERE u.id = :ownerUserId
+                                AND u.organization_id = :organizationId
+                                AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
+                          ))
+                        """)
+                .param("id", id)
+                .param("partyId", request.partyId())
+                .param("clientNumber", request.clientNumber().trim())
+                .param("ownerUserId", request.ownerUserId())
+                .param("noOwner", request.ownerUserId() == null)
+                .param("source", request.source())
+                .param("organizationId", actor.organizationId())
+                .update();
+        if (updated == 0) {
+            throw new BusinessException(
+                    "CLIENT_CONTEXT_INVALID", "客户、主体或负责人无效", HttpStatus.BAD_REQUEST
+            );
+        }
+        auditService.success(actor, "CLIENT_UPDATE", "CLIENT", id);
+        return list().stream().filter(item -> item.id().equals(id)).findFirst().orElseThrow();
+    }
+
     private static ClientView map(java.sql.ResultSet rs, int rowNum) throws java.sql.SQLException {
         return new ClientView(
                 rs.getObject("id", UUID.class),
@@ -92,4 +139,3 @@ public class ClientService {
         );
     }
 }
-

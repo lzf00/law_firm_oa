@@ -112,6 +112,54 @@ public class PartyService {
         );
     }
 
+    @Transactional
+    public PartySummary update(UUID id, CreatePartyRequest request) {
+        RequestActor actor = actorProvider.current();
+        int updated = jdbcClient.sql("""
+                        UPDATE parties
+                        SET party_type = :partyType,
+                            normalized_name = :normalizedName,
+                            display_name = :displayName,
+                            unified_social_credit_code = :creditCode,
+                            notes = :notes,
+                            updated_at = now()
+                        WHERE id = :id AND organization_id = :organizationId
+                          AND deleted_at IS NULL
+                        """)
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .param("partyType", request.partyType().name())
+                .param("normalizedName", normalize(request.displayName()))
+                .param("displayName", request.displayName().trim())
+                .param("creditCode", blankToNull(request.unifiedSocialCreditCode()))
+                .param("notes", blankToNull(request.notes()))
+                .update();
+        if (updated == 0) {
+            throw new com.zoro.legaloa.common.BusinessException(
+                    "PARTY_NOT_FOUND", "主体不存在或无权编辑", org.springframework.http.HttpStatus.NOT_FOUND
+            );
+        }
+        jdbcClient.sql("DELETE FROM party_aliases WHERE party_id = :partyId")
+                .param("partyId", id)
+                .update();
+        List<String> aliases = request.aliases() == null ? List.of() : request.aliases();
+        aliases.stream()
+                .map(String::trim)
+                .filter(alias -> !alias.isBlank())
+                .distinct()
+                .forEach(alias -> jdbcClient.sql("""
+                                INSERT INTO party_aliases (party_id, alias_name, normalized_alias)
+                                VALUES (:partyId, :alias, :normalizedAlias)
+                                ON CONFLICT (party_id, normalized_alias) DO NOTHING
+                                """)
+                        .param("partyId", id)
+                        .param("alias", alias)
+                        .param("normalizedAlias", normalize(alias))
+                        .update());
+        auditService.success(actor, "PARTY_UPDATE", "PARTY", id);
+        return search("").stream().filter(item -> item.id().equals(id)).findFirst().orElseThrow();
+    }
+
     static String normalize(String value) {
         if (value == null) {
             return "";
@@ -125,4 +173,3 @@ public class PartyService {
         return value == null || value.isBlank() ? null : value.trim();
     }
 }
-

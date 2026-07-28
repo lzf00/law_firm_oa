@@ -87,7 +87,7 @@ class RequestValidationTest {
         ), "responsibleUserId");
         assertInvalid(new CreateDeadlineRequest(
                 ID, "Deadline", Instant.now().minusSeconds(1),
-                "COURT", ID, "HIGH"
+                "COURT", ID, "HIGH", List.of(7, 3, 1)
         ), "dueAt");
     }
 

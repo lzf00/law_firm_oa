@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,6 +34,14 @@ public class PartyController {
         return partyService.create(request);
     }
 
+    @PutMapping("/{id}")
+    PartySummary update(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreatePartyRequest request
+    ) {
+        return partyService.update(id, request);
+    }
+
     public record CreatePartyRequest(
             @NotNull PartyType partyType,
             @NotBlank @Size(max = 300) String displayName,
@@ -53,4 +63,3 @@ public class PartyController {
             List<String> aliases
     ) {}
 }
-

@@ -8,6 +8,8 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +33,14 @@ public class ClientController {
         return clientService.create(request);
     }
 
+    @PutMapping("/{id}")
+    ClientView update(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateClientRequest request
+    ) {
+        return clientService.update(id, request);
+    }
+
     public record CreateClientRequest(
             @NotNull UUID partyId,
             @NotBlank @Size(max = 60) String clientNumber,
@@ -49,4 +59,3 @@ public class ClientController {
             String status
     ) {}
 }
-

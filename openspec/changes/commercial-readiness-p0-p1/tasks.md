@@ -15,9 +15,9 @@
 
 ## 3. P0 Core Legal Workflow Completion
 
-- [ ] 3.1 Implement localized create/edit forms for parties and clients with validation and list refresh
-- [ ] 3.2 Implement localized create/edit forms for contracts and contract workflow submission
-- [ ] 3.3 Implement localized create/edit forms for deadlines with ownership, reminders, and matter linkage
+- [x] 3.1 Implement localized create/edit forms for parties and clients with validation and list refresh
+- [x] 3.2 Implement localized create/edit forms for contracts and contract workflow submission
+- [x] 3.3 Implement localized create/edit forms for deadlines with ownership, reminders, and matter linkage
 - [ ] 3.4 Add the matter detail route and authorized overview for parties, conflicts, team, contracts, deadlines, documents, approvals, activity, and archive state
 - [ ] 3.5 Wire matter status filters, search, edit, and lifecycle actions and remove all no-op controls
 - [ ] 3.6 Add approval reject-reason, transfer-eligibility, reminder-rate-limit, and action feedback UI

@@ -10,6 +10,8 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +35,14 @@ public class ContractController {
         return contractService.create(request);
     }
 
+    @PutMapping("/{id}")
+    ContractView update(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateContractRequest request
+    ) {
+        return contractService.update(id, request);
+    }
+
     public record CreateContractRequest(
             @NotBlank @Size(max = 80) String contractNumber,
             @NotBlank @Size(max = 300) String title,
@@ -50,6 +60,7 @@ public class ContractController {
             String contractNumber,
             String title,
             String status,
+            UUID clientId,
             String clientName,
             UUID responsibleUserId,
             String responsibleName,
@@ -57,7 +68,7 @@ public class ContractController {
             LocalDate expiryDate,
             BigDecimal amount,
             String currency,
-            int matterCount
+            int matterCount,
+            List<UUID> matterIds
     ) {}
 }
-
