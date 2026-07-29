@@ -7,6 +7,7 @@ import com.zoro.legaloa.document.DocumentAccessService;
 import com.zoro.legaloa.identity.RequestActor;
 import com.zoro.legaloa.identity.RequestActorProvider;
 import com.zoro.legaloa.matter.ContractController.ArchiveSignedFileRequest;
+import com.zoro.legaloa.matter.ContractController.ContractArchiveLinkView;
 import com.zoro.legaloa.matter.ContractController.ContractDetailView;
 import com.zoro.legaloa.matter.ContractController.ContractLifecycleComment;
 import com.zoro.legaloa.matter.ContractController.ContractLifecycleEventView;
@@ -306,7 +307,8 @@ public class ContractLifecycleService {
         return new ContractDetailView(
                 contract,
                 versions(contractId),
-                lifecycle(contractId)
+                lifecycle(contractId),
+                archives(contractId)
         );
     }
 
@@ -389,6 +391,35 @@ public class ContractLifecycleService {
                         rs.getObject("document_version_id", UUID.class),
                         rs.getString("comment"),
                         rs.getTimestamp("occurred_at").toInstant()
+                ))
+                .list();
+    }
+
+    private List<ContractArchiveLinkView> archives(UUID contractId) {
+        return jdbcClient.sql("""
+                        SELECT av.id, av.archive_number, av.title, av.status,
+                               av.matter_id, m.matter_number,
+                               d.id AS document_id, ai.document_version_id,
+                               ai.sequence_number
+                        FROM documents d
+                        JOIN archive_items ai ON ai.document_id = d.id
+                        JOIN archive_volumes av ON av.id = ai.archive_volume_id
+                        LEFT JOIN matters m ON m.id = av.matter_id
+                        WHERE d.contract_id = :contractId
+                          AND d.deleted_at IS NULL
+                        ORDER BY av.created_at DESC, ai.sequence_number
+                        """)
+                .param("contractId", contractId)
+                .query((rs, rowNum) -> new ContractArchiveLinkView(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("archive_number"),
+                        rs.getString("title"),
+                        rs.getString("status"),
+                        rs.getObject("matter_id", UUID.class),
+                        rs.getString("matter_number"),
+                        rs.getObject("document_id", UUID.class),
+                        rs.getObject("document_version_id", UUID.class),
+                        rs.getInt("sequence_number")
                 ))
                 .list();
     }
@@ -487,19 +518,11 @@ public class ContractLifecycleService {
                                 )
                                 OR EXISTS (
                                   SELECT 1 FROM user_roles ur
-                                  JOIN roles r ON r.id = ur.role_id
-                                  WHERE ur.user_id = :userId
-                                    AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
-                                )
-                                OR EXISTS (
-                                  SELECT 1 FROM user_roles ur
                                   JOIN role_permissions rp ON rp.role_id = ur.role_id
                                   JOIN permissions permission
                                     ON permission.id = rp.permission_id
                                   WHERE ur.user_id = :userId
-                                    AND permission.code IN (
-                                      'CONTRACT_FINALIZE', 'CONTRACT_SIGN_ARCHIVE'
-                                    )
+                                    AND permission.code = 'CONTRACT_VIEW_ALL'
                                 )
                               )
                         )

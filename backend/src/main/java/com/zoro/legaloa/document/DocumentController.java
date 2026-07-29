@@ -72,6 +72,11 @@ public class DocumentController {
         return documentService.versions(documentId);
     }
 
+    @GetMapping("/{documentId}/evidence")
+    DocumentEvidenceView evidence(@PathVariable UUID documentId) {
+        return documentService.evidence(documentId);
+    }
+
     @GetMapping("/{documentId}/grants")
     List<DocumentGrantView> grants(@PathVariable UUID documentId) {
         return grantService.list(documentId);
@@ -169,5 +174,35 @@ public class DocumentController {
             String ingestionStatus,
             String scanFailureReason,
             Instant scanCompletedAt
+    ) {}
+
+    public record DocumentEvidenceView(
+            UUID documentId,
+            UUID matterId,
+            String matterNumber,
+            String matterTitle,
+            UUID contractId,
+            String contractNumber,
+            String contractTitle,
+            List<ContractVersionReferenceView> contractVersions,
+            List<ArchiveReferenceView> archives
+    ) {}
+
+    public record ContractVersionReferenceView(
+            UUID contractVersionId,
+            int versionNumber,
+            String versionStatus,
+            String signatureStatus,
+            boolean primaryFile,
+            boolean signedFile
+    ) {}
+
+    public record ArchiveReferenceView(
+            UUID archiveId,
+            String archiveNumber,
+            String archiveTitle,
+            String archiveStatus,
+            UUID pinnedDocumentVersionId,
+            int sequenceNumber
     ) {}
 }

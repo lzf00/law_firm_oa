@@ -104,9 +104,7 @@ public class DocumentAccessService {
                                       JOIN role_permissions rp ON rp.role_id = ur.role_id
                                       JOIN permissions p ON p.id = rp.permission_id
                                       WHERE ur.user_id = :userId
-                                        AND p.code IN (
-                                          'CONTRACT_FINALIZE', 'CONTRACT_SIGN_ARCHIVE'
-                                        )
+                                        AND p.code = 'CONTRACT_VIEW_ALL'
                                     )
                                   )
                             )
@@ -149,9 +147,7 @@ public class DocumentAccessService {
                                           JOIN role_permissions rp ON rp.role_id = ur.role_id
                                           JOIN permissions p ON p.id = rp.permission_id
                                           WHERE ur.user_id = :userId
-                                            AND p.code IN (
-                                              'CONTRACT_FINALIZE', 'CONTRACT_SIGN_ARCHIVE'
-                                            )
+                                            AND p.code = 'CONTRACT_VIEW_ALL'
                                         )
                                       )
                                   ))
@@ -166,9 +162,7 @@ public class DocumentAccessService {
                                           JOIN role_permissions rp ON rp.role_id = ur.role_id
                                           JOIN permissions p ON p.id = rp.permission_id
                                           WHERE ur.user_id = :userId
-                                            AND p.code IN (
-                                              'CONTRACT_FINALIZE', 'CONTRACT_SIGN_ARCHIVE'
-                                            )
+                                            AND p.code = 'CONTRACT_VIEW_ALL'
                                         )
                                       )
                                   ))

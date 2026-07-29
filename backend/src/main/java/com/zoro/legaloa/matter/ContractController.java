@@ -163,9 +163,22 @@ public class ContractController {
             Instant occurredAt
     ) {}
 
+    public record ContractArchiveLinkView(
+            UUID archiveId,
+            String archiveNumber,
+            String archiveTitle,
+            String archiveStatus,
+            UUID matterId,
+            String matterNumber,
+            UUID documentId,
+            UUID documentVersionId,
+            int sequenceNumber
+    ) {}
+
     public record ContractDetailView(
             ContractView contract,
             List<ContractVersionView> versions,
-            List<ContractLifecycleEventView> lifecycle
+            List<ContractLifecycleEventView> lifecycle,
+            List<ContractArchiveLinkView> archives
     ) {}
 }

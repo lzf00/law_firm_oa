@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   Download,
   Eye,
@@ -8,8 +9,10 @@ import {
   FileLock2,
   FileText,
   FileUp,
+  FolderArchive,
   History,
   KeyRound,
+  Link2,
   Plus,
   RefreshCw,
   ShieldCheck,
@@ -25,6 +28,7 @@ import { formatLegalCode } from '@/legalFormat'
 interface DocumentItem {
   id: string
   matterId?: string
+  contractId?: string
   logicalName: string
   documentType: string
   confidentialityLevel: string
@@ -70,15 +74,53 @@ interface DocumentGrant {
   active: boolean
 }
 
+interface ContractSummary {
+  id: string
+  contractNumber: string
+  title: string
+}
+
+interface DocumentEvidence {
+  documentId: string
+  matterId?: string
+  matterNumber?: string
+  matterTitle?: string
+  contractId?: string
+  contractNumber?: string
+  contractTitle?: string
+  contractVersions: Array<{
+    contractVersionId: string
+    versionNumber: number
+    versionStatus: string
+    signatureStatus: string
+    primaryFile: boolean
+    signedFile: boolean
+  }>
+  archives: Array<{
+    archiveId: string
+    archiveNumber: string
+    archiveTitle: string
+    archiveStatus: string
+    pinnedDocumentVersionId: string
+    sequenceNumber: number
+  }>
+}
+
 const { locale } = useI18n()
+const route = useRoute()
+const router = useRouter()
 const matters = ref<Matter[]>([])
+const contracts = ref<ContractSummary[]>([])
 const currentUser = ref<CurrentUser | null>(null)
 const organizationUsers = ref<OrganizationUser[]>([])
 const selectedMatter = ref('')
+const selectedContract = ref('')
+const scope = ref<'matter' | 'contract'>('matter')
 const documents = ref<DocumentItem[]>([])
 const selectedDocumentId = ref('')
 const versions = ref<DocumentVersion[]>([])
 const grants = ref<DocumentGrant[]>([])
+const evidence = ref<DocumentEvidence | null>(null)
 const loading = ref(false)
 const versionLoading = ref(false)
 const uploading = ref(false)
@@ -96,6 +138,11 @@ const selectedMatterItem = computed(() =>
   matters.value.find((item) => item.id === selectedMatter.value))
 const selectedMatterName = computed(() =>
   selectedMatterItem.value?.title ?? t('copy.0136'))
+const selectedContractItem = computed(() =>
+  contracts.value.find((item) => item.id === selectedContract.value))
+const selectedContextName = computed(() => scope.value === 'contract'
+  ? selectedContractItem.value?.title ?? t('documents.noContract')
+  : selectedMatterName.value)
 const selectedDocument = computed(() =>
   documents.value.find((item) => item.id === selectedDocumentId.value) ?? null)
 const currentVersion = computed(() =>
@@ -113,30 +160,51 @@ const canManageSelected = computed(() => Boolean(
 
 onMounted(async () => {
   try {
-    const [matterResult, meResult, userResult] = await Promise.all([
+    const [matterResult, contractResult, meResult, userResult] = await Promise.all([
       http.get<Matter[]>('/matters'),
+      http.get<ContractSummary[]>('/contracts'),
       http.get<CurrentUser>('/me'),
       http.get<OrganizationUser[]>('/organization/users'),
     ])
     matters.value = matterResult.data
+    contracts.value = contractResult.data
     currentUser.value = meResult.data
     organizationUsers.value = userResult.data.filter((item) => item.status === 'ACTIVE')
-    selectedMatter.value = matters.value[0]?.id ?? ''
+    const requestedContract = String(route.query.contractId ?? '')
+    const requestedMatter = String(route.query.matterId ?? '')
+    scope.value = requestedContract && contracts.value.some((item) => item.id === requestedContract)
+      ? 'contract'
+      : 'matter'
+    selectedContract.value = scope.value === 'contract'
+      ? requestedContract
+      : contracts.value[0]?.id ?? ''
+    selectedMatter.value = matters.value.some((item) => item.id === requestedMatter)
+      ? requestedMatter
+      : matters.value[0]?.id ?? ''
+    await loadDocuments()
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : t('documents.loadFailed'))
   }
 })
 
-watch(selectedMatter, loadDocuments)
+watch(selectedMatter, () => {
+  if (scope.value === 'matter') loadDocuments()
+})
+watch(selectedContract, () => {
+  if (scope.value === 'contract') loadDocuments()
+})
+watch(scope, loadDocuments)
 watch(selectedDocumentId, async (documentId) => {
   versions.value = []
   grants.value = []
+  evidence.value = null
   if (!documentId) return
-  await loadVersions(documentId)
+  await Promise.all([loadVersions(documentId), loadEvidence(documentId)])
 })
 
-async function loadDocuments(matterId = selectedMatter.value) {
-  if (!matterId) {
+async function loadDocuments() {
+  const contextId = scope.value === 'matter' ? selectedMatter.value : selectedContract.value
+  if (!contextId) {
     documents.value = []
     selectedDocumentId.value = ''
     return
@@ -144,10 +212,15 @@ async function loadDocuments(matterId = selectedMatter.value) {
   loading.value = true
   try {
     documents.value = (await http.get<DocumentItem[]>('/documents', {
-      params: { matterId },
+      params: scope.value === 'matter'
+        ? { matterId: contextId }
+        : { contractId: contextId },
     })).data
+    const requestedDocument = String(route.query.documentId ?? '')
     if (!documents.value.some((item) => item.id === selectedDocumentId.value)) {
-      selectedDocumentId.value = documents.value[0]?.id ?? ''
+      selectedDocumentId.value = documents.value.some((item) => item.id === requestedDocument)
+        ? requestedDocument
+        : documents.value[0]?.id ?? ''
     }
   } catch (error) {
     documents.value = []
@@ -155,6 +228,24 @@ async function loadDocuments(matterId = selectedMatter.value) {
     ElMessage.error(error instanceof Error ? error.message : t('documents.loadFailed'))
   } finally {
     loading.value = false
+  }
+}
+
+async function loadEvidence(documentId = selectedDocumentId.value) {
+  if (!documentId) return
+  try {
+    const result = (await http.get<DocumentEvidence>(
+      `/documents/${documentId}/evidence`,
+    )).data
+    evidence.value = result && !Array.isArray(result)
+      ? {
+          ...result,
+          contractVersions: result.contractVersions ?? [],
+          archives: result.archives ?? [],
+        }
+      : null
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : t('documents.evidenceLoadFailed'))
   }
 }
 
@@ -197,21 +288,24 @@ async function sha256(file: File) {
 }
 
 function requestUpload(mode: 'new' | 'version') {
-  if (!selectedMatter.value || (mode === 'version' && !selectedDocument.value)) return
+  const contextId = scope.value === 'matter' ? selectedMatter.value : selectedContract.value
+  if (!contextId || (mode === 'version' && !selectedDocument.value)) return
   uploadMode.value = mode
   fileInput.value?.click()
 }
 
 async function upload(event: Event) {
   const file = (event.target as HTMLInputElement).files?.[0]
-  if (!file || !selectedMatter.value) return
+  const contextId = scope.value === 'matter' ? selectedMatter.value : selectedContract.value
+  if (!file || !contextId) return
   const target = uploadMode.value === 'version' ? selectedDocument.value : null
   uploading.value = true
   try {
     const hash = await sha256(file)
     const ticket = (await http.post('/documents/uploads', {
       documentId: target?.id,
-      matterId: selectedMatter.value,
+      matterId: scope.value === 'matter' ? contextId : undefined,
+      contractId: scope.value === 'contract' ? contextId : undefined,
       logicalName: target?.logicalName ?? file.name.replace(/\.[^.]+$/, ''),
       documentType: target?.documentType ?? 'CASE_FILE',
       originalFilename: file.name,
@@ -240,6 +334,15 @@ async function upload(event: Event) {
     uploading.value = false
     if (fileInput.value) fileInput.value.value = ''
   }
+}
+
+function openContract() {
+  const contractId = evidence.value?.contractId
+  if (contractId) router.push({ path: '/contracts', query: { contractId } })
+}
+
+function openArchive(archiveId: string) {
+  router.push({ path: '/archives', query: { archiveId } })
 }
 
 async function openVersion(version: DocumentVersion, action: 'preview' | 'download') {
@@ -314,13 +417,13 @@ async function revokeGrant(grant: DocumentGrant) {
       <div>
         <span class="eyebrow">{{ t('documents.kicker') }}</span>
         <h2>{{ t('headline.documents') }}</h2>
-        <p data-allow-business-data>{{ tp('copy.dynamic.currentMatter', { matter: selectedMatterName }) }}</p>
+        <p data-allow-business-data>{{ tp('documents.currentContext', { context: selectedContextName }) }}</p>
       </div>
       <div class="page-actions">
         <button class="secondary-action" type="button" :disabled="loading" @click="loadDocuments()">
           <RefreshCw :size="16" />{{ t('documents.refresh') }}
         </button>
-        <button class="primary-action" type="button" :disabled="!selectedMatter || uploading" @click="requestUpload('new')">
+        <button class="primary-action" type="button" :disabled="!(scope === 'matter' ? selectedMatter : selectedContract) || uploading" @click="requestUpload('new')">
           <FileUp :size="17" />{{ uploading ? t('copy.0143') : t('copy.0144') }}
         </button>
         <input
@@ -334,11 +437,26 @@ async function revokeGrant(grant: DocumentGrant) {
     </header>
 
     <section class="context-bar">
-      <label>
-        <span>{{ t('copy.0145') }}</span>
+      <label class="scope-switch">
+        <span>{{ t('documents.scope') }}</span>
+        <select v-model="scope">
+          <option value="matter">{{ t('documents.matterFiles') }}</option>
+          <option value="contract">{{ t('documents.contractFiles') }}</option>
+        </select>
+      </label>
+      <label v-if="scope === 'matter'">
+        <span>{{ t('documents.matter') }}</span>
         <select v-model="selectedMatter">
           <option v-for="matter in matters" :key="matter.id" :value="matter.id">
             {{ matter.matterNumber }} · {{ matter.title }}
+          </option>
+        </select>
+      </label>
+      <label v-else>
+        <span>{{ t('documents.contract') }}</span>
+        <select v-model="selectedContract">
+          <option v-for="item in contracts" :key="item.id" :value="item.id">
+            {{ item.contractNumber }} · {{ item.title }}
           </option>
         </select>
       </label>
@@ -435,6 +553,33 @@ async function revokeGrant(grant: DocumentGrant) {
             <UsersRound :size="16" />{{ t('documents.access') }}
           </button>
         </div>
+
+        <section v-if="evidence" class="evidence-section">
+          <header>
+            <div><Link2 :size="18" /><strong>{{ t('documents.evidenceChain') }}</strong></div>
+            <span>{{ t('documents.evidenceHint') }}</span>
+          </header>
+          <div class="evidence-links">
+            <button v-if="evidence.contractId" type="button" @click="openContract">
+              <FileCheck2 :size="18" />
+              <span><strong>{{ evidence.contractNumber }} · {{ evidence.contractTitle }}</strong><small>{{ evidence.contractVersions.length }} {{ t('documents.contractVersions') }}</small></span>
+              <Eye :size="15" />
+            </button>
+            <button
+              v-for="item in evidence.archives"
+              :key="`${item.archiveId}-${item.pinnedDocumentVersionId}`"
+              type="button"
+              @click="openArchive(item.archiveId)"
+            >
+              <FolderArchive :size="18" />
+              <span><strong>{{ item.archiveNumber }} · {{ item.archiveTitle }}</strong><small>{{ t('documents.archiveSequence') }} {{ item.sequenceNumber }} · {{ formatLegalCode(item.archiveStatus, locale) }}</small></span>
+              <Eye :size="15" />
+            </button>
+            <span v-if="!evidence.contractId && !evidence.archives.length" class="no-evidence">
+              <ShieldCheck :size="17" />{{ t('documents.notLinked') }}
+            </span>
+          </div>
+        </section>
 
         <section class="version-section">
           <header>
@@ -558,7 +703,7 @@ async function revokeGrant(grant: DocumentGrant) {
 .page-actions { display: flex; gap: 8px; }
 .context-bar {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) auto auto;
+  grid-template-columns: 160px minmax(280px, 1fr) auto auto;
   gap: 10px;
   margin-bottom: 14px;
 }
@@ -658,6 +803,16 @@ async function revokeGrant(grant: DocumentGrant) {
 .document-facts small { color: var(--muted); font-size: 9px; }
 .document-facts strong { margin-top: 5px; font-size: 11px; overflow-wrap: anywhere; }
 .detail-actions { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px 18px; border-bottom: 1px solid var(--line); }
+.evidence-section { border-bottom: 1px solid var(--line); }
+.evidence-section > header { display:flex; align-items:center; justify-content:space-between; gap:12px; padding:12px 18px; background:#f0f5f2; }
+.evidence-section > header div { display:flex; align-items:center; gap:8px; color:var(--forest-2); }
+.evidence-section > header span { color:var(--muted); font-size:9px; }
+.evidence-links { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:12px 18px; }
+.evidence-links button { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:10px; align-items:center; padding:11px 12px; border:1px solid var(--line); border-radius:9px; background:#fff; color:var(--forest-2); text-align:left; cursor:pointer; }
+.evidence-links button:hover { border-color:#91a99e; background:#f7faf8; }
+.evidence-links strong,.evidence-links small { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.evidence-links strong { font-size:10px; }.evidence-links small { margin-top:4px; color:var(--muted); font-size:9px; }
+.no-evidence { display:flex; align-items:center; gap:8px; grid-column:1/-1; color:var(--muted); font-size:10px; }
 .version-section > header {
   display: flex;
   justify-content: space-between;
@@ -779,6 +934,8 @@ async function revokeGrant(grant: DocumentGrant) {
   .document-facts span:nth-child(2) { border-right: 0; }
   .document-facts span:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
   .detail-actions button { flex: 1 1 calc(50% - 4px); justify-content: center; }
+  .evidence-section > header { align-items:flex-start; flex-direction:column; }
+  .evidence-links { grid-template-columns:1fr; }
   .version-list article { grid-template-columns: auto 1fr; }
   .version-actions { grid-column: 2; }
   .grant-form { grid-template-columns: 1fr; }

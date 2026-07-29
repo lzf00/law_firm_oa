@@ -42,33 +42,84 @@ public class ArchiveController {
         return archiveService.addItem(archiveId, request);
     }
 
+    @GetMapping("/{archiveId}/candidates")
+    List<ArchiveCandidateView> candidates(@PathVariable UUID archiveId) {
+        return archiveService.candidates(archiveId);
+    }
+
+    @PostMapping("/{archiveId}/close")
+    ArchiveVolumeView close(
+            @PathVariable UUID archiveId,
+            @Valid @RequestBody CloseArchiveRequest request
+    ) {
+        return archiveService.close(archiveId, request);
+    }
+
     public record CreateArchiveVolumeRequest(
             @NotBlank @Size(max = 100) String archiveNumber,
             @NotBlank @Size(max = 300) String title,
             @NotBlank @Size(max = 80) String retentionPolicyCode,
-            UUID matterId
+            @NotNull UUID matterId
     ) {}
 
     public record AddArchiveItemRequest(@NotNull UUID documentId) {}
+
+    public record CloseArchiveRequest(@Size(max = 1000) String comment) {}
 
     public record ArchiveVolumeView(
             UUID id,
             String archiveNumber,
             String title,
             UUID matterId,
+            String matterNumber,
+            String matterTitle,
             String retentionPolicyCode,
             String status,
             Instant archivedAt,
+            UUID createdBy,
             String createdByName,
             Instant createdAt,
+            String archivedByName,
             int itemCount,
-            List<ArchiveItemView> items
+            List<ArchiveItemView> items,
+            List<ArchiveLifecycleEventView> lifecycle
     ) {}
 
     public record ArchiveItemView(
             UUID documentId,
+            UUID documentVersionId,
             String logicalName,
             String documentType,
-            int sequenceNumber
+            int sequenceNumber,
+            int versionNumber,
+            String filename,
+            String sha256,
+            String versionStatus,
+            String signatureStatus,
+            UUID contractId,
+            String contractNumber
+    ) {}
+
+    public record ArchiveLifecycleEventView(
+            UUID id,
+            String action,
+            UUID actorUserId,
+            String actorName,
+            UUID documentId,
+            UUID documentVersionId,
+            String comment,
+            Instant occurredAt
+    ) {}
+
+    public record ArchiveCandidateView(
+            UUID documentId,
+            UUID documentVersionId,
+            String logicalName,
+            String documentType,
+            int versionNumber,
+            String filename,
+            String signatureStatus,
+            UUID contractId,
+            String contractNumber
     ) {}
 }

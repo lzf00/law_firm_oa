@@ -3,6 +3,9 @@ package com.zoro.legaloa.document;
 import com.zoro.legaloa.common.AuditService;
 import com.zoro.legaloa.common.BusinessException;
 import com.zoro.legaloa.document.DocumentController.DocumentView;
+import com.zoro.legaloa.document.DocumentController.ArchiveReferenceView;
+import com.zoro.legaloa.document.DocumentController.ContractVersionReferenceView;
+import com.zoro.legaloa.document.DocumentController.DocumentEvidenceView;
 import com.zoro.legaloa.document.DocumentController.DocumentVersionView;
 import com.zoro.legaloa.document.DocumentController.DownloadTicket;
 import com.zoro.legaloa.document.DocumentController.InitiateUploadRequest;
@@ -133,6 +136,85 @@ public class DocumentService {
                                 ? null : rs.getTimestamp("scan_completed_at").toInstant()
                 ))
                 .list();
+    }
+
+    @Transactional(readOnly = true)
+    public DocumentEvidenceView evidence(UUID documentId) {
+        RequestActor actor = actorProvider.current();
+        accessService.requireDocumentRead(actor, documentId, false);
+        DocumentContext context = jdbcClient.sql("""
+                        SELECT d.id, d.matter_id, m.matter_number, m.title AS matter_title,
+                               d.contract_id, c.contract_number, c.title AS contract_title
+                        FROM documents d
+                        LEFT JOIN matters m ON m.id = d.matter_id
+                        LEFT JOIN contracts c ON c.id = d.contract_id
+                        WHERE d.id = :documentId
+                          AND d.organization_id = :organizationId
+                          AND d.deleted_at IS NULL
+                        """)
+                .param("documentId", documentId)
+                .param("organizationId", actor.organizationId())
+                .query((rs, rowNum) -> new DocumentContext(
+                        rs.getObject("id", UUID.class),
+                        rs.getObject("matter_id", UUID.class),
+                        rs.getString("matter_number"),
+                        rs.getString("matter_title"),
+                        rs.getObject("contract_id", UUID.class),
+                        rs.getString("contract_number"),
+                        rs.getString("contract_title")
+                ))
+                .optional()
+                .orElseThrow(() -> new BusinessException(
+                        "DOCUMENT_NOT_FOUND",
+                        "文档不存在或当前用户无权访问",
+                        HttpStatus.NOT_FOUND
+                ));
+        List<ContractVersionReferenceView> contractVersions = jdbcClient.sql("""
+                        SELECT cv.id, cv.version_number, cv.status, cv.signature_status,
+                               cv.primary_document_version_id = dv.id AS primary_file,
+                               cv.signed_document_version_id = dv.id AS signed_file
+                        FROM document_versions dv
+                        JOIN contract_version_documents cvd
+                          ON cvd.document_version_id = dv.id
+                        JOIN contract_versions cv ON cv.id = cvd.contract_version_id
+                        WHERE dv.document_id = :documentId
+                        ORDER BY cv.version_number DESC
+                        """)
+                .param("documentId", documentId)
+                .query((rs, rowNum) -> new ContractVersionReferenceView(
+                        rs.getObject("id", UUID.class),
+                        rs.getInt("version_number"),
+                        rs.getString("status"),
+                        rs.getString("signature_status"),
+                        rs.getBoolean("primary_file"),
+                        rs.getBoolean("signed_file")
+                ))
+                .list();
+        List<ArchiveReferenceView> archives = jdbcClient.sql("""
+                        SELECT av.id, av.archive_number, av.title, av.status,
+                               ai.document_version_id, ai.sequence_number
+                        FROM archive_items ai
+                        JOIN archive_volumes av ON av.id = ai.archive_volume_id
+                        WHERE ai.document_id = :documentId
+                          AND av.organization_id = :organizationId
+                        ORDER BY av.created_at DESC
+                        """)
+                .param("documentId", documentId)
+                .param("organizationId", actor.organizationId())
+                .query((rs, rowNum) -> new ArchiveReferenceView(
+                        rs.getObject("id", UUID.class),
+                        rs.getString("archive_number"),
+                        rs.getString("title"),
+                        rs.getString("status"),
+                        rs.getObject("document_version_id", UUID.class),
+                        rs.getInt("sequence_number")
+                ))
+                .list();
+        return new DocumentEvidenceView(
+                context.documentId(), context.matterId(), context.matterNumber(),
+                context.matterTitle(), context.contractId(), context.contractNumber(),
+                context.contractTitle(), contractVersions, archives
+        );
     }
 
     @Transactional
@@ -647,4 +729,14 @@ public class DocumentService {
     }
 
     private record PersistedVersion(UUID documentId, UUID versionId) {}
+
+    private record DocumentContext(
+            UUID documentId,
+            UUID matterId,
+            String matterNumber,
+            String matterTitle,
+            UUID contractId,
+            String contractNumber,
+            String contractTitle
+    ) {}
 }

@@ -274,6 +274,22 @@ await check('主体、客户与案件立项权限边界', async () => {
       && !assistantMe.permissions.includes('MATTER_CREATE'),
     '律师助理的业务准入权限不符合最小权限原则',
   )
+  assert(
+    ['CONTRACT_VIEW_ALL', 'ARCHIVE_CREATE', 'ARCHIVE_VIEW_ALL', 'ARCHIVE_MANAGE', 'ARCHIVE_CLOSE']
+      .every((code) => adminMe.permissions.includes(code)),
+    '管理员缺少合同全局查看或电子卷宗治理权限',
+  )
+  assert(
+    lawyerMe.permissions.includes('ARCHIVE_CREATE')
+      && !lawyerMe.permissions.includes('ARCHIVE_MANAGE')
+      && !lawyerMe.permissions.includes('ARCHIVE_CLOSE'),
+    '律师卷宗权限未遵循建卷与治理职责分离',
+  )
+  assert(
+    ['ARCHIVE_CREATE', 'ARCHIVE_VIEW_ALL', 'ARCHIVE_MANAGE', 'ARCHIVE_CLOSE']
+      .every((code) => !assistantMe.permissions.includes(code)),
+    '律师助理不应获得卷宗治理权限',
+  )
   await expectApiError(`/parties/${createdParty.id}`, {
     method: 'PUT',
     body: JSON.stringify({
@@ -772,13 +788,42 @@ await check('电子卷宗建卷与卷内文件编目', async () => {
       matterId: seededMatterId,
     }),
   })
+  const candidates = await api(`/archives/${createdArchive.id}/candidates`)
+  assert(candidates.some((item) => item.documentId === createdDocument.id), '安全可用的案件文件未进入待入卷清单')
   createdArchive = await api(`/archives/${createdArchive.id}/items`, {
     method: 'POST',
     body: JSON.stringify({ documentId: createdDocument.id }),
   })
   assert(createdArchive.itemCount === 1, '卷内文件计数不正确')
   assert(createdArchive.matterId === seededMatterId, '卷宗未绑定案件')
-  assert(createdArchive.items.some((item) => item.documentId === createdDocument.id), '卷内文件目录缺失')
+  const archiveItem = createdArchive.items.find((item) => item.documentId === createdDocument.id)
+  assert(archiveItem, '卷内文件目录缺失')
+  assert(archiveItem.documentVersionId === createdDocument.currentVersionId, '卷宗未固定入卷时的具体文档版本')
+  assert(archiveItem.sha256 && archiveItem.versionNumber === 1, '卷宗目录缺少版本号或 SHA-256 证据')
+  assert(
+    createdArchive.lifecycle.some((event) => event.action === 'CREATED')
+      && createdArchive.lifecycle.some((event) => event.action === 'ITEM_ADDED'),
+    '卷宗生命周期事件不完整',
+  )
+  const evidence = await api(`/documents/${createdDocument.id}/evidence`)
+  const archiveEvidence = evidence.archives.find((item) => item.archiveId === createdArchive.id)
+  assert(archiveEvidence?.pinnedDocumentVersionId === createdDocument.currentVersionId, '文档反向归档证据不完整')
+  const remaining = await api(`/archives/${createdArchive.id}/candidates`)
+  assert(!remaining.some((item) => item.documentId === createdDocument.id), '已入卷文件仍出现在待入卷清单')
+  await expectApiError(`/archives/${createdArchive.id}/close`, {
+    method: 'POST',
+    body: JSON.stringify({ comment: '越权封卷' }),
+  }, 'liassistant', 403, 'PERMISSION_DENIED')
+  createdArchive = await api(`/archives/${createdArchive.id}/close`, {
+    method: 'POST',
+    body: JSON.stringify({ comment: '自动化验收确认目录完整' }),
+  })
+  assert(createdArchive.status === 'ARCHIVED' && createdArchive.archivedAt, '卷宗封卷状态或时间未固化')
+  assert(createdArchive.lifecycle.some((event) => event.action === 'CLOSED'), '封卷事件未写入生命周期')
+  await expectApiError(`/archives/${createdArchive.id}/items`, {
+    method: 'POST',
+    body: JSON.stringify({ documentId: createdDocument.id }),
+  }, 'admin', 409, 'ARCHIVE_ITEM_INVALID')
 })
 
 await check('公告发布、范围可见与已读回执', async () => {

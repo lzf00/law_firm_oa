@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import {
   ArrowRight,
   CheckCircle2,
@@ -9,6 +10,8 @@ import {
   FileCheck2,
   FileClock,
   FileSignature,
+  FileText,
+  FolderArchive,
   Fingerprint,
   History,
   Link2,
@@ -85,6 +88,17 @@ interface ContractDetail {
   contract: Contract
   versions: ContractVersion[]
   lifecycle: ContractEvent[]
+  archives: ContractArchiveLink[]
+}
+
+interface ContractArchiveLink {
+  archiveId: string
+  archiveNumber: string
+  archiveTitle: string
+  archiveStatus: string
+  documentId: string
+  documentVersionId: string
+  sequenceNumber: number
 }
 
 interface Client {
@@ -121,12 +135,15 @@ const contractCopyKeys = [
   'confirmSigned', 'close', 'success', 'failed', 'required', 'dateInvalid',
   'fileRequired', 'signedRequired', 'uploadUnavailable', 'reviewRequired',
   'refresh', 'draft', 'reviewing', 'approved', 'signed',
+  'documents', 'openDocuments', 'archiveLedger', 'notArchived', 'openArchive',
 ] as const
 const copy = computed(() => Object.fromEntries(
   contractCopyKeys.map((key) => [key, t(`contractOps.${key}`)]),
 ) as Record<(typeof contractCopyKeys)[number], string>)
 
 const contracts = ref<Contract[]>([])
+const route = useRoute()
+const router = useRouter()
 const detail = ref<ContractDetail | null>(null)
 const clients = ref<Client[]>([])
 const matters = ref<Matter[]>([])
@@ -234,8 +251,11 @@ async function load(selectFirst = true) {
     matters.value = matterResult.data
     users.value = userResult.data
     currentUser.value = meResult.data
+    const requestedId = String(route.query.contractId ?? '')
     if (selectFirst && (!selectedId.value || !contracts.value.some((item) => item.id === selectedId.value))) {
-      selectedId.value = contracts.value[0]?.id ?? ''
+      selectedId.value = contracts.value.some((item) => item.id === requestedId)
+        ? requestedId
+        : contracts.value[0]?.id ?? ''
     }
     if (selectedId.value) await loadDetail(selectedId.value)
   } catch (error) {
@@ -249,13 +269,28 @@ async function loadDetail(id: string) {
   selectedId.value = id
   detailLoading.value = true
   try {
-    detail.value = (await http.get<ContractDetail>(`/contracts/${id}`)).data
+    const result = (await http.get<ContractDetail>(`/contracts/${id}`)).data
+    detail.value = {
+      ...result,
+      versions: result.versions ?? [],
+      lifecycle: result.lifecycle ?? [],
+      archives: result.archives ?? [],
+    }
   } catch (error) {
     detail.value = null
     ElMessage.error(error instanceof Error ? error.message : copy.value.failed)
   } finally {
     detailLoading.value = false
   }
+}
+
+function openDocuments() {
+  if (!selectedContract.value) return
+  router.push({ path: '/documents', query: { contractId: selectedContract.value.id } })
+}
+
+function openArchive(archiveId: string) {
+  router.push({ path: '/archives', query: { archiveId } })
 }
 
 function openForm(contract?: Contract) {
@@ -542,6 +577,9 @@ onMounted(() => load())
               </div>
             </div>
             <div class="detail-actions">
+              <button class="secondary-action" type="button" @click="openDocuments">
+                <FileText :size="15" /> {{ copy.openDocuments }}
+              </button>
               <button v-if="canEditSelected" class="secondary-action" @click="openForm(selectedContract)">
                 <Pencil :size="15" /> {{ copy.edit }}
               </button>
@@ -630,6 +668,29 @@ onMounted(() => load())
             <span><strong>{{ copy.uploadSigned }}</strong><small>{{ copy.confirmSigned }}</small></span>
             <ArrowRight :size="18" />
           </button>
+
+          <section class="detail-section archive-evidence">
+            <div class="section-heading">
+              <div><FolderArchive :size="18" /><h4>{{ copy.archiveLedger }}</h4></div>
+              <strong>{{ detail.archives.length }}</strong>
+            </div>
+            <div v-if="detail.archives.length" class="archive-link-list">
+              <button
+                v-for="item in detail.archives"
+                :key="`${item.archiveId}-${item.documentVersionId}`"
+                type="button"
+                @click="openArchive(item.archiveId)"
+              >
+                <FolderArchive :size="18" />
+                <span>
+                  <strong>{{ item.archiveNumber }} · {{ item.archiveTitle }}</strong>
+                  <small>{{ copy.version }} {{ item.sequenceNumber }} · {{ formatLegalCode(item.archiveStatus, locale) }}</small>
+                </span>
+                <ArrowRight :size="16" />
+              </button>
+            </div>
+            <div v-else class="event-empty"><FolderArchive :size="18" /> {{ copy.notArchived }}</div>
+          </section>
 
           <section class="detail-section">
             <div class="section-heading">
@@ -765,7 +826,13 @@ onMounted(() => load())
 .event-timeline li:not(:last-child)::before { content:''; position:absolute; left:5px; top:12px; bottom:0; border-left:1px solid #d6dad6; }
 .event-dot { position:relative; z-index:1; width:11px; height:11px; margin-top:3px; border:2px solid #628174; border-radius:50%; background:#fff; }
 .event-timeline div { display:grid; gap:3px; }.event-timeline strong { color:#334d43; font-size:12px; }.event-timeline span,.event-timeline small { color:#4e5e57; font-size:10px; }
-.event-empty { display:flex; align-items:center; gap:8px; color:#818984; font-size:12px; }
+.event-empty { display:flex; align-items:center; gap:8px; color:#59665f; font-size:12px; }
+.archive-link-list { display:grid; gap:8px; }
+.archive-link-list button { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:11px; align-items:center; width:100%; padding:12px 13px; border:1px solid #dfe3de; background:#f8faf8; color:#315548; text-align:left; cursor:pointer; }
+.archive-link-list button:hover { border-color:#8da499; background:#f1f6f3; }
+.archive-link-list strong,.archive-link-list small { display:block; }
+.archive-link-list strong { font-size:11px; }
+.archive-link-list small { margin-top:4px; color:#65736e; font-size:9px; }
 .empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-height:180px; color:#87908b; text-align:center; }.detail-empty { min-height:620px; }
 .upload-form { display:grid; gap:14px; }.upload-form>label:not(.file-picker) { display:grid; gap:7px; color:#41534d; font-size:12px; font-weight:650; }.upload-form textarea { min-height:100px; padding:10px; border:1px solid #d8d5ca; resize:vertical; }
 .file-picker { position:relative; display:flex; align-items:center; gap:10px; padding:18px; border:1px dashed #93a69d; background:#f6f9f7; color:#38594c; cursor:pointer; }.file-picker input { position:absolute; inset:0; opacity:0; cursor:pointer; }

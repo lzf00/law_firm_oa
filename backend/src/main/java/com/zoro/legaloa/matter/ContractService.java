@@ -76,18 +76,10 @@ public class ContractService {
                             )
                             OR EXISTS (
                               SELECT 1 FROM user_roles ur
-                              JOIN roles r ON r.id = ur.role_id
-                              WHERE ur.user_id = :userId
-                                AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
-                            )
-                            OR EXISTS (
-                              SELECT 1 FROM user_roles ur
                               JOIN role_permissions rp ON rp.role_id = ur.role_id
                               JOIN permissions permission ON permission.id = rp.permission_id
                               WHERE ur.user_id = :userId
-                                AND permission.code IN (
-                                  'CONTRACT_FINALIZE', 'CONTRACT_SIGN_ARCHIVE'
-                                )
+                                AND permission.code = 'CONTRACT_VIEW_ALL'
                             )
                           )
                         GROUP BY c.id, p.display_name, u.display_name,
@@ -215,9 +207,10 @@ public class ContractService {
                             )
                             OR EXISTS (
                               SELECT 1 FROM user_roles ur
-                              JOIN roles r ON r.id = ur.role_id
+                              JOIN role_permissions rp ON rp.role_id = ur.role_id
+                              JOIN permissions permission ON permission.id = rp.permission_id
                               WHERE ur.user_id = :actorId
-                                AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
+                                AND permission.code = 'CONTRACT_VIEW_ALL'
                             )
                           )
                         """)
@@ -262,9 +255,10 @@ public class ContractService {
                               )
                               OR EXISTS (
                                   SELECT 1 FROM user_roles ur
-                                  JOIN roles r ON r.id = ur.role_id
+                                  JOIN role_permissions rp ON rp.role_id = ur.role_id
+                                  JOIN permissions permission ON permission.id = rp.permission_id
                                   WHERE ur.user_id = :actorId
-                                    AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
+                                    AND permission.code = 'CONTRACT_VIEW_ALL'
                               )
                           )
                           AND EXISTS (
