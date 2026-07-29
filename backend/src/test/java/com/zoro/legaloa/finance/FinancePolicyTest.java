@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.math.BigDecimal;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class FinancePolicyTest {
@@ -35,6 +36,17 @@ class FinancePolicyTest {
         )).isTrue();
         assertThat(FinancePolicy.allocationFits(
                 new BigDecimal("450"), new BigDecimal("500"), new BigDecimal("400")
+        )).isFalse();
+    }
+
+    @Test
+    void timeApprovalRequiresASecondPerson() {
+        UUID professional = UUID.randomUUID();
+        assertThat(FinancePolicy.isIndependentApprover(
+                UUID.randomUUID(), professional
+        )).isTrue();
+        assertThat(FinancePolicy.isIndependentApprover(
+                professional, professional
         )).isFalse();
     }
 }

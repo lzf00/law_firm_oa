@@ -130,6 +130,27 @@ public class FinanceService {
                 && request.effectiveTo().isBefore(request.effectiveFrom())) {
             throw invalid("ENGAGEMENT_DATE_INVALID");
         }
+        if (request.clientId() != null) {
+            boolean clientExists = Boolean.TRUE.equals(jdbcClient.sql("""
+                            SELECT EXISTS (
+                              SELECT 1 FROM clients c
+                              JOIN parties p ON p.id = c.party_id
+                              WHERE c.id = :clientId
+                                AND p.organization_id = :organizationId
+                                AND c.status = 'ACTIVE' AND c.deleted_at IS NULL
+                            )
+                            """)
+                    .param("clientId", request.clientId())
+                    .param("organizationId", actor.organizationId())
+                    .query(Boolean.class).single());
+            if (!clientExists) {
+                throw new BusinessException(
+                        "ENGAGEMENT_CLIENT_INVALID",
+                        "委托客户不存在或已停用",
+                        HttpStatus.BAD_REQUEST
+                );
+            }
+        }
         String number = "ENG-" + LocalDate.now().format(DateTimeFormatter.BASIC_ISO_DATE)
                 + "-" + shortId();
         UUID id = jdbcClient.sql("""
@@ -178,6 +199,8 @@ public class FinanceService {
     public EngagementView approveEngagement(UUID id) {
         RequestActor actor = actorProvider.current();
         authorizationService.requirePermission(actor, "FINANCE_MANAGE");
+        EngagementView current = engagement(id, actor.organizationId());
+        officeAccessService.resolveManagedOffice(actor, current.officeId());
         int updated = jdbcClient.sql("""
                         UPDATE engagements
                         SET status = 'APPROVED', approved_by = :approvedBy,
@@ -329,6 +352,31 @@ public class FinanceService {
         } else if ("APPROVED".equals(target)) {
             source = "SUBMITTED";
             authorizationService.requirePermission(actor, "TIME_ENTRY_APPROVE");
+            TimeEntryApproval approval = jdbcClient.sql("""
+                            SELECT office_id, professional_user_id
+                            FROM time_entries
+                            WHERE id = :id AND organization_id = :organizationId
+                            """)
+                    .param("id", id)
+                    .param("organizationId", actor.organizationId())
+                    .query((rs, rowNum) -> new TimeEntryApproval(
+                            rs.getObject("office_id", UUID.class),
+                            rs.getObject("professional_user_id", UUID.class)
+                    ))
+                    .optional()
+                    .orElseThrow(() -> new BusinessException(
+                            "TIME_ENTRY_NOT_FOUND", "工时记录不存在", HttpStatus.NOT_FOUND
+                    ));
+            officeAccessService.resolveManagedOffice(actor, approval.officeId());
+            if (!FinancePolicy.isIndependentApprover(
+                    actor.userId(), approval.professionalUserId()
+            )) {
+                throw new BusinessException(
+                        "TIME_ENTRY_SELF_APPROVAL_FORBIDDEN",
+                        "工时登记人不能审批自己的工时",
+                        HttpStatus.FORBIDDEN
+                );
+            }
         } else {
             throw invalid("TIME_ENTRY_TRANSITION_INVALID");
         }
@@ -536,6 +584,8 @@ public class FinanceService {
     public InvoiceView transitionInvoice(UUID id, String target, String reason) {
         RequestActor actor = actorProvider.current();
         authorizationService.requirePermission(actor, "INVOICE_MANAGE");
+        InvoiceView current = invoice(id, actor.organizationId());
+        officeAccessService.resolveManagedOffice(actor, current.officeId());
         String source;
         switch (target) {
             case "UNDER_REVIEW" -> source = "DRAFT";
@@ -703,24 +753,24 @@ public class FinanceService {
             throw invalid("COLLECTION_TYPE_INVALID");
         }
         UUID ownerId = request.ownerUserId() == null ? actor.userId() : request.ownerUserId();
-        Boolean exists = jdbcClient.sql("""
-                        SELECT EXISTS (
-                          SELECT 1 FROM invoices i
-                          JOIN users u ON u.id = :ownerId
-                          WHERE i.id = :invoiceId AND i.organization_id = :organizationId
-                            AND u.organization_id = i.organization_id
-                        )
+        UUID officeId = jdbcClient.sql("""
+                        SELECT i.office_id
+                        FROM invoices i
+                        JOIN users u ON u.id = :ownerId
+                        WHERE i.id = :invoiceId AND i.organization_id = :organizationId
+                          AND u.organization_id = i.organization_id
+                          AND u.status = 'ACTIVE' AND u.deleted_at IS NULL
                         """)
                 .param("ownerId", ownerId)
                 .param("invoiceId", invoiceId)
                 .param("organizationId", actor.organizationId())
-                .query(Boolean.class).single();
-        if (!Boolean.TRUE.equals(exists)) {
-            throw new BusinessException(
-                    "COLLECTION_TARGET_INVALID", "账单或跟进负责人无效",
-                    HttpStatus.BAD_REQUEST
-            );
-        }
+                .query(UUID.class)
+                .optional()
+                .orElseThrow(() -> new BusinessException(
+                        "COLLECTION_TARGET_INVALID", "账单或跟进负责人无效",
+                        HttpStatus.BAD_REQUEST
+                ));
+        officeAccessService.resolveManagedOffice(actor, officeId);
         UUID id = jdbcClient.sql("""
                         INSERT INTO collection_activities
                             (organization_id, invoice_id, activity_type, notes,
@@ -1012,6 +1062,7 @@ public class FinanceService {
     private record InvoiceBalance(
             BigDecimal total, BigDecimal paid, String currency, UUID officeId
     ) {}
+    private record TimeEntryApproval(UUID officeId, UUID professionalUserId) {}
     private record ReportTotals(
             BigDecimal approvedWip, BigDecimal unbilled, BigDecimal revenue,
             BigDecimal receivables, BigDecimal collected, BigDecimal utilization

@@ -2,6 +2,7 @@ package com.zoro.legaloa.finance;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.UUID;
 
 public final class FinancePolicy {
     private FinancePolicy() {}
@@ -37,5 +38,11 @@ public final class FinancePolicy {
                 && allocation.signum() > 0
                 && allocation.compareTo(paymentAvailable) <= 0
                 && allocation.compareTo(invoiceOutstanding) <= 0;
+    }
+
+    public static boolean isIndependentApprover(UUID actorId, UUID professionalUserId) {
+        return actorId != null
+                && professionalUserId != null
+                && !actorId.equals(professionalUserId);
     }
 }

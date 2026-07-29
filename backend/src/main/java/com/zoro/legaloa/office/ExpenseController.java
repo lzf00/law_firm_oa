@@ -5,6 +5,7 @@ import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -38,6 +39,11 @@ public class ExpenseController {
         return service.create(request);
     }
 
+    @PostMapping("/receipt-check")
+    ReceiptCheckView checkReceipt(@Valid @RequestBody ReceiptCheckRequest request) {
+        return service.checkReceipt(request);
+    }
+
     @PostMapping("/{id}/submit")
     ExpenseView submit(
             @PathVariable UUID id,
@@ -66,13 +72,22 @@ public class ExpenseController {
             UUID receiptDocumentId
     ) {}
 
+    public record ReceiptCheckRequest(
+            @NotNull UUID matterId,
+            @NotBlank @Pattern(regexp = "^[0-9a-fA-F]{64}$") String sha256
+    ) {}
+
+    public record ReceiptCheckView(boolean duplicate) {}
+
     public record ExpenseItemView(
             UUID id,
             String category,
             LocalDate occurredOn,
             String description,
             BigDecimal amount,
-            UUID receiptDocumentId
+            UUID receiptDocumentId,
+            UUID receiptVersionId,
+            String receiptFilename
     ) {}
 
     public record ExpenseView(
@@ -92,6 +107,9 @@ public class ExpenseController {
             UUID officeId,
             String officeNameZh,
             String officeNameEn,
+            String reviewStage,
+            String reviewTaskName,
+            String reviewGroup,
             List<ExpenseItemView> items
     ) {}
 }
