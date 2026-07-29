@@ -1,4 +1,8 @@
 FROM node:22-alpine AS build
+ARG VITE_BASE_PATH=/
+ARG VITE_API_BASE_URL=/api
+ENV VITE_BASE_PATH=${VITE_BASE_PATH}
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --no-audit --no-fund

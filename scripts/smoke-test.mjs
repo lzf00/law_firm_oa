@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto'
 
 const baseUrl = process.env.OA_BASE_URL ?? 'http://localhost:8081/api'
+const basicAuth = process.env.OA_BASIC_AUTH
+const gatewayHeaders = basicAuth
+  ? { Authorization: `Basic ${Buffer.from(basicAuth).toString('base64')}` }
+  : {}
 const checks = []
 
 function assert(condition, message) {
@@ -11,6 +15,7 @@ async function api(path, options = {}, user = 'admin') {
   const response = await fetch(`${baseUrl}${path}`, {
     ...options,
     headers: {
+      ...gatewayHeaders,
       'Content-Type': 'application/json',
       'X-Dev-User': user,
       ...(options.headers ?? {}),
@@ -34,7 +39,10 @@ async function api(path, options = {}, user = 'admin') {
 
 async function publicApi(path) {
   const response = await fetch(`${baseUrl}${path}`, {
-    headers: { 'Accept-Language': 'en-US' },
+    headers: {
+      ...gatewayHeaders,
+      'Accept-Language': 'en-US',
+    },
   })
   const text = await response.text()
   const body = text ? JSON.parse(text) : null

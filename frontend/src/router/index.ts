@@ -1,4 +1,5 @@
 import { createRouter, createWebHistory } from 'vue-router'
+import { apiUrl } from '@/api/base'
 import { translate, useI18n } from '@/i18n'
 import { useTenant } from '@/tenant'
 const LoginView = () => import('@/views/LoginView.vue')
@@ -25,7 +26,7 @@ const FinanceWorkbenchView = () => import('@/views/FinanceWorkbenchView.vue')
 const AdminConsoleView = () => import('@/views/AdminConsoleView.vue')
 
 const router = createRouter({
-  history: createWebHistory(),
+  history: createWebHistory(import.meta.env.BASE_URL),
   routes: [
     {
       path: '/login',
@@ -123,7 +124,7 @@ async function hasBrowserSession() {
     return true
   }
   try {
-    const response = await fetch('/api/me', { credentials: 'same-origin' })
+    const response = await fetch(apiUrl('/me'), { credentials: 'same-origin' })
     browserSessionAuthenticated = response.ok
   } catch {
     browserSessionAuthenticated = false
@@ -137,7 +138,7 @@ router.beforeEach(async (to) => {
   }
   if (authMode === null) {
     try {
-      const response = await fetch('/api/auth/config')
+      const response = await fetch(apiUrl('/auth/config'))
       const payload = await response.json() as { authMode?: 'dev' | 'dingtalk' }
       authMode = payload.authMode ?? 'dingtalk'
     } catch {

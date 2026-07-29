@@ -1,8 +1,9 @@
 import axios from 'axios'
 import { useI18n } from '@/i18n'
+import { apiBaseUrl, appUrl } from '@/api/base'
 
 export const http = axios.create({
-  baseURL: '/api',
+  baseURL: apiBaseUrl,
   timeout: 15_000,
   withCredentials: true,
 })
@@ -24,7 +25,7 @@ http.interceptors.response.use(
       && !window.location.pathname.startsWith('/auth/dingtalk/callback')
       && !window.location.pathname.startsWith('/login')
     ) {
-      window.location.assign('/login?reason=session-expired')
+      window.location.assign(appUrl('login?reason=session-expired'))
     }
     const payload = error.response?.data
     const message = payload?.message ?? '系统暂时无法处理请求'
