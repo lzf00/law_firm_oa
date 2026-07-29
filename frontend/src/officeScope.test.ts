@@ -19,6 +19,8 @@ function user(overrides: Partial<CurrentUser> = {}): CurrentUser {
     username: 'lawyer',
     displayName: 'Lawyer',
     authorities: [],
+    roles: [],
+    permissions: [],
     preferredLocale: 'zh-CN',
     globalOfficeAccess: false,
     accessibleOffices: [shanghai],

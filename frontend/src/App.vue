@@ -120,10 +120,25 @@ const navGroups = [
       { to: '/meetings', labelKey: 'nav.meetings', icon: Building2 },
       { to: '/directory', labelKey: 'nav.directory', icon: ContactRound },
       { to: '/offices', labelKey: 'nav.offices', icon: Globe2 },
-      { to: '/admin', labelKey: 'nav.admin', icon: Settings2 },
+      {
+        to: '/admin',
+        labelKey: 'nav.admin',
+        icon: Settings2,
+        permission: 'ADMIN_CONSOLE_VIEW',
+      },
     ],
   },
 ]
+
+const visibleNavGroups = computed(() => navGroups
+  .map((group) => ({
+    ...group,
+    items: group.items.filter((item) => (
+      !('permission' in item)
+      || Boolean(item.permission && user.value?.permissions.includes(item.permission))
+    )),
+  }))
+  .filter((group) => group.items.length > 0))
 
 async function loadCurrentUser() {
   try {
@@ -274,7 +289,7 @@ async function logout() {
       </div>
 
       <nav class="nav" :aria-label="locale === 'en-US' ? 'Primary navigation' : '主导航'">
-        <section v-for="group in navGroups" :key="group.titleKey" class="nav-group">
+        <section v-for="group in visibleNavGroups" :key="group.titleKey" class="nav-group">
           <div class="nav-heading">{{ t(group.titleKey) }}</div>
           <RouterLink
             v-for="item in group.items"

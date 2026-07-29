@@ -4,6 +4,8 @@ export interface CurrentUser {
   username: string
   displayName: string
   authorities: string[]
+  roles: string[]
+  permissions: string[]
   preferredLocale: 'zh-CN' | 'en-US'
   primaryOfficeId?: string
   officeNameZh?: string

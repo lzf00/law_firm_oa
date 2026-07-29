@@ -2,6 +2,7 @@ package com.zoro.legaloa.identity;
 
 import java.util.List;
 import java.util.UUID;
+import com.zoro.legaloa.common.AuthorizationService;
 import org.springframework.jdbc.core.simple.JdbcClient;
 
 import org.springframework.security.core.Authentication;
@@ -15,15 +16,18 @@ public class CurrentUserController {
     private final RequestActorProvider actorProvider;
     private final JdbcClient jdbcClient;
     private final OfficeAccessService officeAccessService;
+    private final AuthorizationService authorizationService;
 
     public CurrentUserController(
             RequestActorProvider actorProvider,
             JdbcClient jdbcClient,
-            OfficeAccessService officeAccessService
+            OfficeAccessService officeAccessService,
+            AuthorizationService authorizationService
     ) {
         this.actorProvider = actorProvider;
         this.jdbcClient = jdbcClient;
         this.officeAccessService = officeAccessService;
+        this.authorizationService = authorizationService;
     }
 
     @GetMapping
@@ -51,6 +55,8 @@ public class CurrentUserController {
                 ))
                 .single();
         OfficeAccessScope officeScope = officeAccessService.scope(actor);
+        List<String> roles = authorizationService.roles(actor);
+        List<String> permissions = authorizationService.permissions(actor);
         List<AccessibleOffice> accessibleOffices = jdbcClient.sql("""
                         SELECT o.id, o.code, o.name_zh, o.name_en, o.timezone,
                                o.default_currency,
@@ -87,6 +93,8 @@ public class CurrentUserController {
                 actor.username(),
                 actor.displayName(),
                 authorities,
+                roles,
+                permissions,
                 preference.preferredLocale(),
                 preference.primaryOfficeId(),
                 preference.officeNameZh(),
@@ -104,6 +112,8 @@ public class CurrentUserController {
             String username,
             String displayName,
             List<String> authorities,
+            List<String> roles,
+            List<String> permissions,
             String preferredLocale,
             UUID primaryOfficeId,
             String officeNameZh,

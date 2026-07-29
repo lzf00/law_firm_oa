@@ -30,6 +30,23 @@ public class AuthorizationService {
                 .list();
     }
 
+    public List<String> permissions(RequestActor actor) {
+        return jdbcClient.sql("""
+                        SELECT DISTINCT p.code
+                        FROM permissions p
+                        JOIN role_permissions rp ON rp.permission_id = p.id
+                        JOIN roles r ON r.id = rp.role_id
+                        JOIN user_roles ur ON ur.role_id = r.id
+                        WHERE ur.user_id = :userId
+                          AND r.organization_id = :organizationId
+                        ORDER BY p.code
+                        """)
+                .param("userId", actor.userId())
+                .param("organizationId", actor.organizationId())
+                .query(String.class)
+                .list();
+    }
+
     public boolean hasAnyRole(RequestActor actor, String... roleCodes) {
         if (roleCodes.length == 0) {
             return false;

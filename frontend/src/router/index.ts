@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { apiUrl } from '@/api/base'
 import { translate, useI18n } from '@/i18n'
 import { useTenant } from '@/tenant'
+import type { CurrentUser } from '@/api/types'
 const LoginView = () => import('@/views/LoginView.vue')
 const DashboardView = () => import('@/views/DashboardView.vue')
 const MatterListView = () => import('@/views/MatterListView.vue')
@@ -103,7 +104,7 @@ const router = createRouter({
       path: '/admin',
       name: 'admin',
       component: AdminConsoleView,
-      meta: { titleKey: 'page.admin' },
+      meta: { titleKey: 'page.admin', permission: 'ADMIN_CONSOLE_VIEW' },
     },
   ],
 })
@@ -150,6 +151,22 @@ router.beforeEach(async (to) => {
     : await hasBrowserSession()
   if (!authenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  const requiredPermission = typeof to.meta.permission === 'string'
+    ? to.meta.permission
+    : null
+  if (requiredPermission) {
+    const response = await fetch(apiUrl('/me'), {
+      credentials: 'same-origin',
+      headers: authMode === 'dev' ? { 'X-Dev-User': 'admin' } : {},
+    })
+    if (!response.ok) {
+      return { name: 'login', query: { redirect: to.fullPath } }
+    }
+    const currentUser = await response.json() as CurrentUser
+    if (!currentUser.permissions.includes(requiredPermission)) {
+      return { name: 'dashboard', query: { reason: 'permission-denied' } }
+    }
   }
   return true
 })

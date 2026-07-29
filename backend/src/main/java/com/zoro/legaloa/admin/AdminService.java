@@ -6,6 +6,8 @@ import com.zoro.legaloa.admin.AdminController.ImportRequest;
 import com.zoro.legaloa.admin.AdminController.IntegrationHealthView;
 import com.zoro.legaloa.admin.AdminController.OfficeAssignment;
 import com.zoro.legaloa.admin.AdminController.OrganizationSettingsView;
+import com.zoro.legaloa.admin.AdminController.PermissionView;
+import com.zoro.legaloa.admin.AdminController.RolePermissionsRequest;
 import com.zoro.legaloa.admin.AdminController.RoleView;
 import com.zoro.legaloa.admin.AdminController.SettingsRequest;
 import com.zoro.legaloa.admin.AdminController.UserAccessRequest;
@@ -46,6 +48,10 @@ public class AdminService {
     private static final Set<String> USER_STATUSES = Set.of("ACTIVE", "INACTIVE", "SUSPENDED");
     private static final Set<String> ACCESS_LEVELS = Set.of("MEMBER", "MANAGER");
     private static final Set<String> IMPORT_TYPES = Set.of("USERS", "MATTERS", "CLIENTS");
+    private static final Set<String> SYSTEM_ROLES = Set.of(
+            "ADMIN", "MANAGING_PARTNER", "PARTNER", "LAWYER", "ASSOCIATE",
+            "PARALEGAL", "FINANCE", "HR", "ADMINISTRATION", "OFFICE_ADMIN"
+    );
 
     private final JdbcClient jdbcClient;
     private final RequestActorProvider actorProvider;
@@ -177,8 +183,101 @@ public class AdminService {
                 .query((rs, rowNum) -> new RoleView(
                         rs.getString("code"), rs.getString("name"),
                         rs.getInt("user_count"),
-                        List.of((String[]) rs.getArray("permissions").getArray())
+                        List.of((String[]) rs.getArray("permissions").getArray()),
+                        SYSTEM_ROLES.contains(rs.getString("code"))
                 )).list();
+    }
+
+    @Transactional(readOnly = true)
+    public List<PermissionView> permissions() {
+        RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "ADMIN_CONSOLE_VIEW");
+        return jdbcClient.sql("""
+                        SELECT p.code, p.name, p.resource_type, p.action,
+                               COUNT(DISTINCT rp.role_id) FILTER (
+                                 WHERE r.organization_id = :organizationId
+                               ) AS assigned_role_count
+                        FROM permissions p
+                        LEFT JOIN role_permissions rp ON rp.permission_id = p.id
+                        LEFT JOIN roles r ON r.id = rp.role_id
+                        GROUP BY p.id
+                        ORDER BY p.resource_type, p.action, p.code
+                        """)
+                .param("organizationId", actor.organizationId())
+                .query((rs, rowNum) -> new PermissionView(
+                        rs.getString("code"), rs.getString("name"),
+                        rs.getString("resource_type"), rs.getString("action"),
+                        rs.getInt("assigned_role_count")
+                )).list();
+    }
+
+    @Transactional
+    public RoleView updateRolePermissions(
+            String requestedRoleCode,
+            RolePermissionsRequest request
+    ) {
+        RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "ROLE_PERMISSION_MANAGE");
+        String roleCode = code(requestedRoleCode);
+        RoleId role = jdbcClient.sql("""
+                        SELECT id, code FROM roles
+                        WHERE organization_id = :organizationId AND code = :code
+                        FOR UPDATE
+                        """)
+                .param("organizationId", actor.organizationId())
+                .param("code", roleCode)
+                .query((rs, rowNum) -> new RoleId(
+                        rs.getObject("id", UUID.class), rs.getString("code")
+                ))
+                .optional()
+                .orElseThrow(() -> new BusinessException(
+                        "ROLE_NOT_FOUND", "角色不存在", HttpStatus.NOT_FOUND
+                ));
+        Set<String> requestedPermissions = request.permissionCodes().stream()
+                .map(AdminService::code)
+                .collect(java.util.stream.Collectors.toCollection(java.util.TreeSet::new));
+        if (!AdminPermissionPolicy.canReplacePermissions(
+                roleCode, requestedPermissions
+        )) {
+            throw new BusinessException(
+                    "ADMIN_PERMISSION_PROTECTED",
+                    "管理员角色必须保留管理控制台、用户权限、角色权限与审计权限",
+                    HttpStatus.CONFLICT
+            );
+        }
+        List<PermissionId> permissions = jdbcClient.sql("""
+                        SELECT id, code FROM permissions
+                        WHERE code IN (:codes)
+                        """)
+                .param("codes", requestedPermissions.isEmpty()
+                        ? List.of("__NONE__") : requestedPermissions)
+                .query((rs, rowNum) -> new PermissionId(
+                        rs.getObject("id", UUID.class), rs.getString("code")
+                )).list();
+        if (permissions.size() != requestedPermissions.size()) {
+            throw new BusinessException(
+                    "PERMISSION_INVALID", "包含不存在的权限", HttpStatus.BAD_REQUEST
+            );
+        }
+        jdbcClient.sql("DELETE FROM role_permissions WHERE role_id = :roleId")
+                .param("roleId", role.id()).update();
+        for (PermissionId permission : permissions) {
+            jdbcClient.sql("""
+                            INSERT INTO role_permissions (role_id, permission_id)
+                            VALUES (:roleId, :permissionId)
+                            """)
+                    .param("roleId", role.id())
+                    .param("permissionId", permission.id())
+                    .update();
+        }
+        auditService.record(
+                actor, "ROLE_PERMISSIONS_UPDATE", "ROLE", role.id(),
+                "SUCCESS", null, Map.of(
+                        "roleCode", roleCode,
+                        "permissionCount", requestedPermissions.size()
+                )
+        );
+        return role(actor.organizationId(), roleCode);
     }
 
     @Transactional
@@ -621,6 +720,29 @@ public class AdminService {
                 .query(AdminService::mapWorkflowRule).single();
     }
 
+    private RoleView role(UUID organizationId, String roleCode) {
+        return jdbcClient.sql("""
+                        SELECT r.id, r.code, r.name,
+                               COUNT(DISTINCT ur.user_id) AS user_count,
+                               COALESCE(array_agg(DISTINCT p.code)
+                                 FILTER (WHERE p.code IS NOT NULL), ARRAY[]::varchar[]) AS permissions
+                        FROM roles r
+                        LEFT JOIN user_roles ur ON ur.role_id = r.id
+                        LEFT JOIN role_permissions rp ON rp.role_id = r.id
+                        LEFT JOIN permissions p ON p.id = rp.permission_id
+                        WHERE r.organization_id = :organizationId AND r.code = :code
+                        GROUP BY r.id
+                        """)
+                .param("organizationId", organizationId)
+                .param("code", roleCode)
+                .query((rs, rowNum) -> new RoleView(
+                        rs.getString("code"), rs.getString("name"),
+                        rs.getInt("user_count"),
+                        List.of((String[]) rs.getArray("permissions").getArray()),
+                        SYSTEM_ROLES.contains(rs.getString("code"))
+                )).single();
+    }
+
     private static WorkflowRuleView mapWorkflowRule(java.sql.ResultSet rs, int rowNum)
             throws java.sql.SQLException {
         return new WorkflowRuleView(
@@ -663,6 +785,7 @@ public class AdminService {
     }
 
     private record RoleId(UUID id, String code) {}
+    private record PermissionId(UUID id, String code) {}
     private record UserBase(
             UUID id, String username, String displayName, String email,
             String status, Instant updatedAt

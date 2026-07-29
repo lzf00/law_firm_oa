@@ -56,6 +56,19 @@ public class AdminController {
         return service.roles();
     }
 
+    @GetMapping("/permissions")
+    List<PermissionView> permissions() {
+        return service.permissions();
+    }
+
+    @PutMapping("/roles/{code}/permissions")
+    RoleView updateRolePermissions(
+            @PathVariable String code,
+            @Valid @RequestBody RolePermissionsRequest request
+    ) {
+        return service.updateRolePermissions(code, request);
+    }
+
     @PutMapping("/users/{id}/access")
     UserAccessView updateUserAccess(
             @PathVariable UUID id,
@@ -128,7 +141,24 @@ public class AdminController {
             List<String> roleCodes, List<OfficeAssignment> offices, Instant updatedAt
     ) {}
 
-    public record RoleView(String code, String name, int userCount, List<String> permissions) {}
+    public record RoleView(
+            String code, String name, int userCount,
+            List<String> permissions, boolean systemRole
+    ) {}
+
+    public record PermissionView(
+            String code, String name, String resourceType,
+            String action, int assignedRoleCount
+    ) {}
+
+    public record RolePermissionsRequest(
+            List<@NotBlank @Size(max = 150) String> permissionCodes
+    ) {
+        public RolePermissionsRequest {
+            permissionCodes = permissionCodes == null
+                    ? List.of() : List.copyOf(permissionCodes);
+        }
+    }
 
     public record WorkflowRuleRequest(
             UUID officeId,
