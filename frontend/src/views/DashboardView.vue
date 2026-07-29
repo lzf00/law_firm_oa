@@ -7,7 +7,6 @@ import { translate as t, useI18n } from '@/i18n'
 import { formatLegalCode } from '@/legalFormat'
 
 const { locale } = useI18n()
-const text = (zh: string, en: string) => locale.value === 'en-US' ? en : zh
 const matters = ref<Matter[]>([])
 const deadlines = ref<Deadline[]>([])
 const workflowTasks = ref<WorkflowTask[]>([])
@@ -20,6 +19,17 @@ const weekDeadlineCount = computed(() => deadlines.value.filter((item) => {
 const conflictReviewCount = computed(() =>
   matters.value.filter((item) => item.status === 'CONFLICT_REVIEW').length,
 )
+const todayLabel = computed(() => new Intl.DateTimeFormat(locale.value, {
+  weekday: 'long',
+  month: 'long',
+  day: 'numeric',
+}).format(new Date()).toLocaleUpperCase(locale.value))
+const greeting = computed(() => {
+  const hour = new Date().getHours()
+  if (hour < 12) return t('dashboard.greetingMorning')
+  if (hour < 18) return t('dashboard.greetingAfternoon')
+  return t('dashboard.greetingEvening')
+})
 
 interface Deadline {
   id: string
@@ -67,8 +77,8 @@ function shortDate(value: string) {
   <div class="dashboard">
     <section class="hero-panel">
       <div>
-        <span class="eyebrow">MONDAY · JUL 27</span>
-        <h2>{{ t('headline.dashboard') }}</h2>
+        <span class="eyebrow">{{ todayLabel }}</span>
+        <h2>{{ greeting }}</h2>
         <p>{{ t('copy.0111') }}</p>
       </div>
       <RouterLink to="/matters" class="primary-action">
@@ -100,7 +110,7 @@ function shortDate(value: string) {
           v-for="matter in matters.slice(0, 5)"
           v-else
           :key="matter.id"
-          to="/matters"
+          :to="`/matters/${matter.id}`"
           class="case-row"
         >
           <span class="case-number">{{ matter.matterNumber }}</span>

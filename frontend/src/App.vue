@@ -97,19 +97,6 @@ const navGroups = [
       { to: '/deadlines', labelKey: 'nav.deadlines', icon: CalendarClock },
       { to: '/approvals', labelKey: 'nav.approvals', icon: FileCheck2 },
       { to: '/tasks', labelKey: 'nav.tasks', icon: ListTodo },
-      { to: '/leave', labelKey: 'nav.leave', icon: CalendarDays },
-      { to: '/expenses', labelKey: 'nav.expenses', icon: ReceiptText },
-      { to: '/finance', labelKey: 'nav.finance', icon: Landmark },
-      { to: '/meetings', labelKey: 'nav.meetings', icon: Building2 },
-    ],
-  },
-  {
-    titleKey: 'nav.organization',
-    items: [
-      { to: '/announcements', labelKey: 'nav.announcements', icon: Megaphone },
-      { to: '/directory', labelKey: 'nav.directory', icon: ContactRound },
-      { to: '/offices', labelKey: 'nav.offices', icon: Globe2 },
-      { to: '/admin', labelKey: 'nav.admin', icon: Settings2 },
     ],
   },
   {
@@ -121,6 +108,19 @@ const navGroups = [
       { to: '/documents', labelKey: 'nav.documents', icon: FileStack },
       { to: '/document-governance', labelKey: 'nav.documentGovernance', icon: LibraryBig },
       { to: '/archives', labelKey: 'nav.archives', icon: Archive },
+    ],
+  },
+  {
+    titleKey: 'nav.organization',
+    items: [
+      { to: '/announcements', labelKey: 'nav.announcements', icon: Megaphone },
+      { to: '/leave', labelKey: 'nav.leave', icon: CalendarDays },
+      { to: '/expenses', labelKey: 'nav.expenses', icon: ReceiptText },
+      { to: '/finance', labelKey: 'nav.finance', icon: Landmark },
+      { to: '/meetings', labelKey: 'nav.meetings', icon: Building2 },
+      { to: '/directory', labelKey: 'nav.directory', icon: ContactRound },
+      { to: '/offices', labelKey: 'nav.offices', icon: Globe2 },
+      { to: '/admin', labelKey: 'nav.admin', icon: Settings2 },
     ],
   },
 ]
@@ -298,6 +298,13 @@ async function logout() {
         </div>
       </div>
     </aside>
+    <button
+      v-if="compact"
+      class="sidebar-backdrop"
+      type="button"
+      :aria-label="locale === 'en-US' ? 'Close navigation' : '关闭导航'"
+      @click="compact = false"
+    />
 
     <main id="main-content" class="main" tabindex="-1">
       <header class="topbar">
