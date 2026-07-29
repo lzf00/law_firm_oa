@@ -1711,13 +1711,14 @@ await check('P1 委托、工时、账单、回款与财务报表闭环', async (
   assert(Number(report.collectedAmount) >= Number(issued.totalAmount), '财务报表未反映已回款')
 })
 
-await check('P1 管理控制台、任务审批权限、集成健康与组织同步预演', async () => {
-  const [settings, users, roles, permissions, integrations] = await Promise.all([
+await check('P1 管理控制台、有效权限快照、任务审批权限、集成健康与组织同步预演', async () => {
+  const [settings, users, roles, permissions, integrations, effectiveAccess] = await Promise.all([
     api('/admin/settings'),
     api('/admin/users?page=1&size=30'),
     api('/admin/roles'),
     api('/admin/permissions'),
     api('/admin/integrations'),
+    api(`/admin/users/${adminId}/effective-access`),
   ])
   assert(settings.supportedLocales.includes('zh-CN') && settings.supportedLocales.includes('en-US'), '管理端双语设置缺失')
   assert(users.total >= 3 && roles.some((role) => role.code === 'ADMIN'), '用户角色控制台数据缺失')
@@ -1738,6 +1739,23 @@ await check('P1 管理控制台、任务审批权限、集成健康与组织同�
     integrations.some((item) => item.integrationType === 'STORAGE' && item.healthStatus === 'UP')
       && integrations.some((item) => item.integrationType === 'SCANNER'),
     '集成健康状态不完整',
+  )
+  assert(
+    effectiveAccess.userId === adminId
+      && effectiveAccess.roles.some((role) => role.code === 'ADMIN')
+      && effectiveAccess.permissions.some(
+        (permission) => permission.code === 'ADMIN_CONSOLE_VIEW'
+          && permission.sourceRoleCodes.includes('ADMIN'),
+      )
+      && effectiveAccess.offices.some((office) => office.active),
+    '管理员有效权限、来源角色或办公室范围快照不完整',
+  )
+  await expectApiError(
+    `/admin/users/${adminId}/effective-access`,
+    {},
+    'zhanglawyer',
+    403,
+    'PERMISSION_DENIED',
   )
 
   const dryRun = await api('/organization/sync/dry-run', {

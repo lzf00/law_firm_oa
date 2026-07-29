@@ -77,6 +77,11 @@ public class AdminController {
         return service.updateUserAccess(id, request);
     }
 
+    @GetMapping("/users/{id}/effective-access")
+    EffectiveAccessView effectiveAccess(@PathVariable UUID id) {
+        return service.effectiveAccess(id);
+    }
+
     @GetMapping("/workflow-rules")
     List<WorkflowRuleView> workflowRules() {
         return service.workflowRules();
@@ -139,6 +144,28 @@ public class AdminController {
     public record UserAccessView(
             UUID id, String username, String displayName, String email, String status,
             List<String> roleCodes, List<OfficeAssignment> offices, Instant updatedAt
+    ) {}
+
+    public record EffectiveRoleView(
+            String code, String name, int permissionCount
+    ) {}
+
+    public record EffectivePermissionView(
+            String code, String name, String resourceType,
+            String action, List<String> sourceRoleCodes
+    ) {}
+
+    public record EffectiveOfficeView(
+            UUID id, String code, String nameZh, String nameEn,
+            String accessLevel, boolean primary, Instant validUntil, boolean active
+    ) {}
+
+    public record EffectiveAccessView(
+            UUID userId, String displayName, String status,
+            List<EffectiveRoleView> roles,
+            List<EffectivePermissionView> permissions,
+            List<EffectiveOfficeView> offices,
+            List<String> warnings, Instant evaluatedAt
     ) {}
 
     public record RoleView(

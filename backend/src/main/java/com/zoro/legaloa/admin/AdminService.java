@@ -3,6 +3,10 @@ package com.zoro.legaloa.admin;
 import com.zoro.legaloa.admin.AdminController.ImportErrorView;
 import com.zoro.legaloa.admin.AdminController.ImportJobView;
 import com.zoro.legaloa.admin.AdminController.ImportRequest;
+import com.zoro.legaloa.admin.AdminController.EffectiveAccessView;
+import com.zoro.legaloa.admin.AdminController.EffectiveOfficeView;
+import com.zoro.legaloa.admin.AdminController.EffectivePermissionView;
+import com.zoro.legaloa.admin.AdminController.EffectiveRoleView;
 import com.zoro.legaloa.admin.AdminController.IntegrationHealthView;
 import com.zoro.legaloa.admin.AdminController.OfficeAssignment;
 import com.zoro.legaloa.admin.AdminController.OrganizationSettingsView;
@@ -414,6 +418,86 @@ public class AdminService {
     }
 
     @Transactional(readOnly = true)
+    public EffectiveAccessView effectiveAccess(UUID userId) {
+        RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "ADMIN_CONSOLE_VIEW");
+        UserAccessView target = userOptional(userId, actor.organizationId())
+                .orElseThrow(() -> new BusinessException(
+                        "USER_NOT_FOUND", "用户不存在", HttpStatus.NOT_FOUND
+                ));
+        List<EffectiveRoleView> roles = jdbcClient.sql("""
+                        SELECT r.code, r.name, COUNT(DISTINCT rp.permission_id) AS permission_count
+                        FROM roles r
+                        JOIN user_roles ur ON ur.role_id = r.id
+                        LEFT JOIN role_permissions rp ON rp.role_id = r.id
+                        WHERE ur.user_id = :userId
+                          AND r.organization_id = :organizationId
+                        GROUP BY r.id
+                        ORDER BY r.code
+                        """)
+                .param("userId", userId)
+                .param("organizationId", actor.organizationId())
+                .query((rs, rowNum) -> new EffectiveRoleView(
+                        rs.getString("code"), rs.getString("name"),
+                        rs.getInt("permission_count")
+                )).list();
+        List<EffectivePermissionView> permissions = jdbcClient.sql("""
+                        SELECT p.code, p.name, p.resource_type, p.action,
+                               array_agg(DISTINCT r.code ORDER BY r.code) AS source_roles
+                        FROM permissions p
+                        JOIN role_permissions rp ON rp.permission_id = p.id
+                        JOIN roles r ON r.id = rp.role_id
+                        JOIN user_roles ur ON ur.role_id = r.id
+                        WHERE ur.user_id = :userId
+                          AND r.organization_id = :organizationId
+                        GROUP BY p.id
+                        ORDER BY p.resource_type, p.action, p.code
+                        """)
+                .param("userId", userId)
+                .param("organizationId", actor.organizationId())
+                .query((rs, rowNum) -> new EffectivePermissionView(
+                        rs.getString("code"), rs.getString("name"),
+                        rs.getString("resource_type"), rs.getString("action"),
+                        List.of((String[]) rs.getArray("source_roles").getArray())
+                )).list();
+        Instant evaluatedAt = Instant.now();
+        List<EffectiveOfficeView> offices = jdbcClient.sql("""
+                        SELECT o.id, o.code, o.name_zh, o.name_en,
+                               uo.access_level, uo.is_primary, uo.valid_until
+                        FROM user_offices uo
+                        JOIN offices o ON o.id = uo.office_id
+                        WHERE uo.user_id = :userId
+                          AND o.organization_id = :organizationId
+                        ORDER BY uo.is_primary DESC, o.code
+                        """)
+                .param("userId", userId)
+                .param("organizationId", actor.organizationId())
+                .query((rs, rowNum) -> {
+                    Instant validUntil = rs.getTimestamp("valid_until") == null ? null
+                            : rs.getTimestamp("valid_until").toInstant();
+                    return new EffectiveOfficeView(
+                            rs.getObject("id", UUID.class), rs.getString("code"),
+                            rs.getString("name_zh"), rs.getString("name_en"),
+                            rs.getString("access_level"), rs.getBoolean("is_primary"),
+                            validUntil, validUntil == null || validUntil.isAfter(evaluatedAt)
+                    );
+                }).list();
+        List<String> warnings = AdminAccessRiskPolicy.warnings(
+                target.status(),
+                roles.stream().map(EffectiveRoleView::code).toList(),
+                offices.stream()
+                        .map(office -> new AdminAccessRiskPolicy.OfficeGrant(
+                                office.primary(), office.validUntil()
+                        )).toList(),
+                evaluatedAt
+        );
+        return new EffectiveAccessView(
+                target.id(), target.displayName(), target.status(),
+                roles, permissions, offices, warnings, evaluatedAt
+        );
+    }
+
+    @Transactional(readOnly = true)
     public List<WorkflowRuleView> workflowRules() {
         RequestActor actor = actorProvider.current();
         authorizationService.requirePermission(actor, "ADMIN_CONSOLE_VIEW");
@@ -675,16 +759,26 @@ public class AdminService {
     }
 
     private UserAccessView user(UUID id, UUID organizationId) {
-        UserBase base = jdbcClient.sql("""
+        return userOptional(id, organizationId).orElseThrow(() -> new BusinessException(
+                "USER_NOT_FOUND", "用户不存在", HttpStatus.NOT_FOUND
+        ));
+    }
+
+    private java.util.Optional<UserAccessView> userOptional(UUID id, UUID organizationId) {
+        java.util.Optional<UserBase> base = jdbcClient.sql("""
                         SELECT id, username, display_name, email, status, updated_at
                         FROM users WHERE id = :id AND organization_id = :organizationId
+                          AND deleted_at IS NULL
                         """)
                 .param("id", id).param("organizationId", organizationId)
                 .query((rs, rowNum) -> new UserBase(
                         rs.getObject("id", UUID.class), rs.getString("username"),
                         rs.getString("display_name"), rs.getString("email"),
                         rs.getString("status"), rs.getTimestamp("updated_at").toInstant()
-                )).single();
+                )).optional();
+        if (base.isEmpty()) {
+            return java.util.Optional.empty();
+        }
         List<String> roleCodes = jdbcClient.sql("""
                         SELECT r.code FROM roles r JOIN user_roles ur ON ur.role_id = r.id
                         WHERE ur.user_id = :userId ORDER BY r.code
@@ -702,10 +796,11 @@ public class AdminService {
                         rs.getTimestamp("valid_until") == null ? null
                                 : rs.getTimestamp("valid_until").toInstant()
                 )).list();
-        return new UserAccessView(
-                base.id(), base.username(), base.displayName(), base.email(), base.status(),
-                roleCodes, offices, base.updatedAt()
-        );
+        UserBase value = base.orElseThrow();
+        return java.util.Optional.of(new UserAccessView(
+                value.id(), value.username(), value.displayName(), value.email(), value.status(),
+                roleCodes, offices, value.updatedAt()
+        ));
     }
 
     private WorkflowRuleView workflowRule(UUID id, UUID organizationId) {

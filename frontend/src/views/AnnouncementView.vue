@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
-import { CheckCheck, Megaphone, Plus, Send } from '@lucide/vue'
+import { CheckCheck, CircleAlert, Megaphone, Plus, Send } from '@lucide/vue'
 import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
 import type { CurrentUser } from '@/api/types'
@@ -20,11 +20,19 @@ const items = ref<Announcement[]>([])
 const currentUser = ref<CurrentUser | null>(null)
 const dialog = ref(false)
 const busy = ref(false)
+const filter = ref<'ALL' | 'UNREAD' | 'IMPORTANT'>('ALL')
 const form = reactive({ title: '', summary: '', content: '', priority: 'NORMAL', officeId: '' })
 const publishableOffices = computed(() => currentUser.value
   ? manageableOffices(currentUser.value)
   : [])
 const unread = computed(() => items.value.filter((item) => item.status === 'PUBLISHED' && !item.read).length)
+const canManageAnnouncements = computed(() =>
+  currentUser.value?.permissions.includes('ANNOUNCEMENT_MANAGE') ?? false)
+const filteredItems = computed(() => items.value.filter((item) => {
+  if (filter.value === 'UNREAD') return item.status === 'PUBLISHED' && !item.read
+  if (filter.value === 'IMPORTANT') return ['IMPORTANT', 'URGENT'].includes(item.priority)
+  return true
+}))
 
 async function load() {
   const [announcementResult, meResult] = await Promise.all([
@@ -85,12 +93,29 @@ onMounted(() => load().catch(() => ElMessage.error(t('copy.0004'))))
         <h2>{{ t('headline.announcements') }}</h2>
         <p>{{ t('copy.0005') }}</p>
       </div>
-      <button class="primary-action" @click="dialog = true"><Plus :size="17" /> {{ t('copy.0006') }}</button>
+      <button v-if="canManageAnnouncements" class="primary-action" @click="dialog = true"><Plus :size="17" /> {{ t('copy.0006') }}</button>
     </div>
+
+    <section class="announcement-controls" :aria-label="t('announcement.filters')">
+      <div class="filter-tabs">
+        <button type="button" :class="{ active: filter === 'ALL' }" @click="filter = 'ALL'">
+          {{ t('announcement.all') }} <b>{{ items.length }}</b>
+        </button>
+        <button type="button" :class="{ active: filter === 'UNREAD' }" @click="filter = 'UNREAD'">
+          {{ t('announcement.unread') }} <b>{{ unread }}</b>
+        </button>
+        <button type="button" :class="{ active: filter === 'IMPORTANT' }" @click="filter = 'IMPORTANT'">
+          {{ t('announcement.important') }}
+          <b>{{ items.filter((item) => ['IMPORTANT', 'URGENT'].includes(item.priority)).length }}</b>
+        </button>
+      </div>
+      <span v-if="unread"><CircleAlert :size="15" />{{ t('announcement.unreadHint').replace('{count}', String(unread)) }}</span>
+      <span v-else><CheckCheck :size="15" />{{ t('announcement.allRead') }}</span>
+    </section>
 
     <div class="announcement-grid">
       <article
-        v-for="item in items"
+        v-for="item in filteredItems"
         :key="item.id"
         class="announcement-card"
         :class="{ unread: !item.read && item.status === 'PUBLISHED' }"
@@ -108,7 +133,7 @@ onMounted(() => load().catch(() => ElMessage.error(t('copy.0004'))))
           <span><CheckCheck :size="14" /> {{ item.readCount }} {{ t('copy.0008') }}</span>
         </div>
       </article>
-      <div v-if="!items.length" class="panel empty-state">{{ t('copy.0009') }}</div>
+      <div v-if="!filteredItems.length" class="panel empty-state">{{ t('announcement.noMatch') }}</div>
     </div>
 
     <el-dialog v-model="dialog" :title="t('copy.0010')" width="560px">
@@ -135,3 +160,37 @@ onMounted(() => load().catch(() => ElMessage.error(t('copy.0004'))))
     </el-dialog>
   </section>
 </template>
+
+<style scoped>
+.announcement-controls {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin-bottom: 16px; padding: 8px 10px; border: 1px solid var(--line);
+  border-radius: 11px; background: rgba(255,255,255,.7); box-shadow: var(--shadow-sm);
+}
+.announcement-controls > span {
+  display: inline-flex; align-items: center; gap: 7px; padding-right: 8px;
+  color: var(--muted); font-size: 9px;
+}
+.announcement-controls > span svg { color: var(--brass); }
+.filter-tabs { display: flex; gap: 5px; }
+.filter-tabs button {
+  min-height: 35px; display: inline-flex; align-items: center; gap: 7px;
+  padding: 0 12px; border: 0; border-radius: 8px; background: transparent;
+  color: var(--muted); cursor: pointer; font-size: 10px; font-weight: 650;
+}
+.filter-tabs button:hover { background: var(--forest-3); color: var(--forest-2); }
+.filter-tabs button.active { background: var(--forest); color: white; }
+.filter-tabs b {
+  min-width: 19px; padding: 2px 5px; border-radius: 999px;
+  background: rgba(255,255,255,.16); font-size: 8px; text-align: center;
+}
+.filter-tabs button:not(.active) b { background: var(--forest-3); color: var(--forest-2); }
+.announcement-card { transition: transform .18s ease, box-shadow .18s ease; }
+.announcement-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+@media (max-width: 700px) {
+  .announcement-controls { align-items: stretch; flex-direction: column; }
+  .announcement-controls > span { padding: 0 6px 4px; }
+  .filter-tabs { overflow-x: auto; }
+  .filter-tabs button { flex: 1; min-width: max-content; }
+}
+</style>

@@ -59,6 +59,42 @@ interface User {
   updatedAt: string
 }
 
+interface EffectiveRole {
+  code: string
+  name: string
+  permissionCount: number
+}
+
+interface EffectivePermission {
+  code: string
+  name: string
+  resourceType: string
+  action: string
+  sourceRoleCodes: string[]
+}
+
+interface EffectiveOffice {
+  id: string
+  code: string
+  nameZh: string
+  nameEn: string
+  accessLevel: string
+  primary: boolean
+  validUntil?: string
+  active: boolean
+}
+
+interface EffectiveAccess {
+  userId: string
+  displayName: string
+  status: string
+  roles: EffectiveRole[]
+  permissions: EffectivePermission[]
+  offices: EffectiveOffice[]
+  warnings: string[]
+  evaluatedAt: string
+}
+
 interface Role {
   code: string
   name: string
@@ -136,6 +172,8 @@ const selectedUser = ref<User | null>(null)
 const selectedRole = ref<Role | null>(null)
 const selectedPermissionCodes = ref<string[]>([])
 const editableOffices = ref<EditableOffice[]>([])
+const effectiveAccess = ref<EffectiveAccess | null>(null)
+const effectiveAccessLoading = ref(false)
 
 const settingsForm = reactive({
   brandNameZh: '',
@@ -162,6 +200,18 @@ const canViewAudit = computed(() => currentUser.value?.permissions.includes('AUD
 const activeUsers = computed(() => users.value.filter((item) => item.status === 'ACTIVE').length)
 const healthyIntegrations = computed(() => integrations.value
   .filter((item) => item.healthStatus === 'UP').length)
+const addedPermissionCodes = computed(() => {
+  if (!selectedRole.value) return []
+  return selectedPermissionCodes.value.filter(
+    (code) => !selectedRole.value?.permissions.includes(code),
+  )
+})
+const removedPermissionCodes = computed(() => {
+  if (!selectedRole.value) return []
+  return selectedRole.value.permissions.filter(
+    (code) => !selectedPermissionCodes.value.includes(code),
+  )
+})
 
 const permissionGroups = computed(() => {
   const groups = new Map<string, Permission[]>()
@@ -177,7 +227,7 @@ function localizedOffice(office: Office) {
   return locale.value === 'en-US' ? office.nameEn : office.nameZh
 }
 
-function permissionLabel(permission: Permission) {
+function permissionLabel(permission: Pick<Permission, 'code' | 'name'>) {
   if (locale.value === 'zh-CN') return permission.name
   return permission.code
     .toLowerCase()
@@ -190,6 +240,15 @@ function healthLabel(status: string) {
   if (status === 'UP') return t('p1.up')
   if (status === 'DOWN') return t('p1.down')
   return t('p1.unknown')
+}
+
+function warningLabel(code: string) {
+  const key = `admin.warning.${code}` as const
+  return t(key)
+}
+
+function localizedEffectiveOffice(office: EffectiveOffice) {
+  return locale.value === 'en-US' ? office.nameEn : office.nameZh
 }
 
 function applySettings(value: Settings) {
@@ -251,6 +310,20 @@ async function load() {
   }
 }
 
+async function loadEffectiveAccess(userId: string) {
+  effectiveAccessLoading.value = true
+  effectiveAccess.value = null
+  try {
+    effectiveAccess.value = (
+      await http.get<EffectiveAccess>(`/admin/users/${userId}/effective-access`)
+    ).data
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : t('admin.accessPreviewFailed'))
+  } finally {
+    effectiveAccessLoading.value = false
+  }
+}
+
 function openUser(item: User) {
   selectedUser.value = {
     ...item,
@@ -268,6 +341,7 @@ function openUser(item: User) {
     }
   })
   userDialog.value = true
+  void loadEffectiveAccess(item.id)
 }
 
 function selectPrimaryOffice(officeId: string) {
@@ -576,55 +650,106 @@ onMounted(load)
       </section>
     </template>
 
-    <el-dialog v-model="userDialog" :title="t('admin.editUserAccess')" width="min(760px, 94vw)" append-to-body>
-      <div v-if="selectedUser" class="access-editor">
-        <header class="editor-person">
-          <span class="user-avatar large">{{ selectedUser.displayName.slice(0, 1) }}</span>
-          <span><strong>{{ selectedUser.displayName }}</strong><small>{{ selectedUser.username }} · {{ selectedUser.email || t('admin.noEmail') }}</small></span>
-        </header>
-        <label class="editor-field">
-          <span>{{ t('p1.status') }}</span>
-          <select v-model="selectedUser.status">
-            <option value="ACTIVE">{{ formatLegalCode('ACTIVE', locale) }}</option>
-            <option value="INACTIVE">{{ formatLegalCode('INACTIVE', locale) }}</option>
-            <option value="SUSPENDED">{{ formatLegalCode('SUSPENDED', locale) }}</option>
-          </select>
-        </label>
-        <fieldset>
-          <legend>{{ t('admin.assignRoles') }}</legend>
-          <div class="choice-grid">
-            <label v-for="role in roles" :key="role.code" class="choice-card">
-              <input v-model="selectedUser.roleCodes" type="checkbox" :value="role.code" />
-              <span><strong>{{ formatLegalCode(role.code, locale) }}</strong><small>{{ t('admin.permissionCount').replace('{count}', String(role.permissions.length)) }}</small></span>
-            </label>
-          </div>
-        </fieldset>
-        <fieldset>
-          <legend>{{ t('admin.officeAccess') }}</legend>
-          <div class="office-access-list">
-            <article v-for="office in editableOffices" :key="office.officeId">
-              <label class="office-toggle">
-                <input v-model="office.enabled" type="checkbox" />
-                <span><strong>{{ localizedOffice(offices.find((item) => item.id === office.officeId)!) }}</strong><small>{{ offices.find((item) => item.id === office.officeId)?.code }}</small></span>
+    <el-dialog v-model="userDialog" :title="t('admin.editUserAccess')" width="min(1080px, 96vw)" append-to-body>
+      <div v-if="selectedUser" class="access-layout">
+        <div class="access-editor">
+          <header class="editor-person">
+            <span class="user-avatar large">{{ selectedUser.displayName.slice(0, 1) }}</span>
+            <span><strong>{{ selectedUser.displayName }}</strong><small>{{ selectedUser.username }} · {{ selectedUser.email || t('admin.noEmail') }}</small></span>
+          </header>
+          <label class="editor-field">
+            <span>{{ t('p1.status') }}</span>
+            <select v-model="selectedUser.status">
+              <option value="ACTIVE">{{ formatLegalCode('ACTIVE', locale) }}</option>
+              <option value="INACTIVE">{{ formatLegalCode('INACTIVE', locale) }}</option>
+              <option value="SUSPENDED">{{ formatLegalCode('SUSPENDED', locale) }}</option>
+            </select>
+          </label>
+          <fieldset>
+            <legend>{{ t('admin.assignRoles') }}</legend>
+            <div class="choice-grid">
+              <label v-for="role in roles" :key="role.code" class="choice-card">
+                <input v-model="selectedUser.roleCodes" type="checkbox" :value="role.code" />
+                <span><strong>{{ formatLegalCode(role.code, locale) }}</strong><small>{{ t('admin.permissionCount').replace('{count}', String(role.permissions.length)) }}</small></span>
               </label>
-              <select v-model="office.accessLevel" :disabled="!office.enabled">
-                <option value="MEMBER">{{ t('offices.levelMember') }}</option>
-                <option value="MANAGER">{{ t('offices.levelManager') }}</option>
-              </select>
-              <label class="primary-choice">
-                <input
-                  type="radio"
-                  name="primary-office"
-                  :checked="office.primary"
-                  :disabled="!office.enabled"
-                  @change="selectPrimaryOffice(office.officeId)"
-                />
-                <span>{{ t('admin.primary') }}</span>
-              </label>
-              <input v-model="office.validUntil" type="datetime-local" :disabled="!office.enabled || office.primary" :aria-label="t('offices.validUntil')" />
-            </article>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>{{ t('admin.officeAccess') }}</legend>
+            <div class="office-access-list">
+              <article v-for="office in editableOffices" :key="office.officeId">
+                <label class="office-toggle">
+                  <input v-model="office.enabled" type="checkbox" />
+                  <span><strong>{{ localizedOffice(offices.find((item) => item.id === office.officeId)!) }}</strong><small>{{ offices.find((item) => item.id === office.officeId)?.code }}</small></span>
+                </label>
+                <select v-model="office.accessLevel" :disabled="!office.enabled">
+                  <option value="MEMBER">{{ t('offices.levelMember') }}</option>
+                  <option value="MANAGER">{{ t('offices.levelManager') }}</option>
+                </select>
+                <label class="primary-choice">
+                  <input
+                    type="radio"
+                    name="primary-office"
+                    :checked="office.primary"
+                    :disabled="!office.enabled"
+                    @change="selectPrimaryOffice(office.officeId)"
+                  />
+                  <span>{{ t('admin.primary') }}</span>
+                </label>
+                <input v-model="office.validUntil" type="datetime-local" :disabled="!office.enabled || office.primary" :aria-label="t('offices.validUntil')" />
+              </article>
+            </div>
+          </fieldset>
+        </div>
+
+        <aside class="effective-access">
+          <header>
+            <span class="preview-icon"><ShieldCheck :size="18" /></span>
+            <span><strong>{{ t('admin.effectiveAccess') }}</strong><small>{{ t('admin.effectiveAccessHint') }}</small></span>
+          </header>
+          <div v-if="effectiveAccessLoading" class="preview-loading">
+            <Activity class="spin" :size="20" /> {{ t('admin.loadingAccessPreview') }}
           </div>
-        </fieldset>
+          <template v-else-if="effectiveAccess">
+            <div class="preview-stats">
+              <span><small>{{ t('admin.roles') }}</small><strong>{{ effectiveAccess.roles.length }}</strong></span>
+              <span><small>{{ t('admin.availablePermissions') }}</small><strong>{{ effectiveAccess.permissions.length }}</strong></span>
+              <span><small>{{ t('admin.officeScope') }}</small><strong>{{ effectiveAccess.offices.filter((office) => office.active).length }}</strong></span>
+            </div>
+            <div v-if="effectiveAccess.warnings.length" class="risk-notices">
+              <strong>{{ t('admin.accessRisks') }}</strong>
+              <span v-for="warning in effectiveAccess.warnings" :key="warning">
+                <CircleAlert :size="14" /> {{ warningLabel(warning) }}
+              </span>
+            </div>
+            <div v-else class="risk-clear">
+              <CheckCircle2 :size="15" /> {{ t('admin.noAccessRisk') }}
+            </div>
+            <section class="source-section">
+              <h4>{{ t('admin.permissionSources') }}</h4>
+              <article v-for="role in effectiveAccess.roles" :key="role.code">
+                <span><strong>{{ formatLegalCode(role.code, locale) }}</strong><small>{{ role.code }}</small></span>
+                <b>{{ role.permissionCount }}</b>
+              </article>
+            </section>
+            <section class="source-section">
+              <h4>{{ t('admin.currentOfficeAccess') }}</h4>
+              <article v-for="office in effectiveAccess.offices" :key="office.id" :class="{ expired: !office.active }">
+                <span><strong>{{ localizedEffectiveOffice(office) }}</strong><small>{{ office.code }} · {{ formatLegalCode(office.accessLevel, locale) }}</small></span>
+                <b>{{ office.primary ? t('admin.primary') : (office.active ? t('admin.activeGrant') : t('admin.expiredGrant')) }}</b>
+              </article>
+              <p v-if="!effectiveAccess.offices.length">{{ t('admin.noOffice') }}</p>
+            </section>
+            <details class="permission-details">
+              <summary>{{ t('admin.viewAllPermissions').replace('{count}', String(effectiveAccess.permissions.length)) }}</summary>
+              <article v-for="permission in effectiveAccess.permissions" :key="permission.code">
+                <span><strong>{{ permissionLabel(permission) }}</strong><small>{{ permission.code }}</small></span>
+                <small>{{ permission.sourceRoleCodes.join(' · ') }}</small>
+              </article>
+            </details>
+            <footer>{{ t('admin.evaluatedAt') }} {{ new Date(effectiveAccess.evaluatedAt).toLocaleString(locale) }}</footer>
+          </template>
+        </aside>
       </div>
       <template #footer>
         <button class="secondary-action" type="button" @click="userDialog = false">{{ t('common.close') }}</button>
@@ -641,6 +766,24 @@ onMounted(load)
           <span><strong>{{ formatLegalCode(selectedRole.code, locale) }}</strong><small>{{ selectedRole.code }} · {{ t('admin.userCount').replace('{count}', String(selectedRole.userCount)) }}</small></span>
         </header>
         <aside><ShieldCheck :size="17" /><span>{{ t('admin.permissionSafety') }}</span></aside>
+        <section class="permission-diff" :class="{ destructive: removedPermissionCodes.length }">
+          <span>
+            <small>{{ t('admin.permissionChanges') }}</small>
+            <strong>
+              {{ t('admin.addedCount').replace('{count}', String(addedPermissionCodes.length)) }}
+              ·
+              {{ t('admin.removedCount').replace('{count}', String(removedPermissionCodes.length)) }}
+            </strong>
+          </span>
+          <span>
+            <small>{{ t('admin.affectedUsers') }}</small>
+            <strong>{{ selectedRole.userCount }}</strong>
+          </span>
+          <p v-if="removedPermissionCodes.length">
+            <CircleAlert :size="15" />
+            {{ t('admin.removalImmediate').replace('{count}', String(selectedRole.userCount)) }}
+          </p>
+        </section>
         <section v-for="group in permissionGroups" :key="group.resourceType">
           <h4>{{ formatLegalCode(group.resourceType, locale) }}</h4>
           <div class="permission-grid">
@@ -730,6 +873,7 @@ onMounted(load)
 .audit-copy span, .audit-copy strong, .audit-copy small, .audit-meta strong, .audit-meta small { display: block; }
 .audit-copy small, .audit-meta small { margin-top: 3px; color: var(--muted); font-size: 9px; }
 .audit-meta { text-align: right; }
+.access-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(290px, .78fr); gap: 18px; align-items: start; }
 .access-editor { display: grid; gap: 18px; }
 .editor-person, .permission-editor > header { display: flex; align-items: center; gap: 11px; padding-bottom: 15px; border-bottom: 1px solid var(--line); }
 .editor-person span, .editor-person strong, .editor-person small, .permission-editor > header span, .permission-editor > header strong, .permission-editor > header small { display: block; }
@@ -749,8 +893,49 @@ legend { margin-bottom: 10px; font-size: 11px; font-weight: 750; }
 .office-toggle small { color: var(--muted); font-size: 8px; }
 .office-access-list select, .office-access-list input[type="datetime-local"] { min-height: 35px; padding: 0 8px; border: 1px solid var(--line); border-radius: 7px; background: white; font-size: 9px; }
 .primary-choice span { color: var(--muted); font-size: 9px; }
+.effective-access { position: sticky; top: 0; overflow: hidden; border: 1px solid #cad8d1; border-radius: 12px; background: linear-gradient(160deg, #f7faf8 0%, #eef4f0 100%); box-shadow: inset 0 1px rgba(255,255,255,.8); }
+.effective-access > header { display: flex; align-items: center; gap: 10px; padding: 14px 15px; border-bottom: 1px solid #d5dfda; background: rgba(255,255,255,.64); }
+.effective-access > header span, .effective-access > header strong, .effective-access > header small { display: block; }
+.effective-access > header strong { font-size: 11px; }
+.effective-access > header small { margin-top: 3px; color: var(--muted); font-size: 8px; line-height: 1.45; }
+.preview-icon { width: 34px; height: 34px; display: grid !important; place-items: center; flex: 0 0 auto; border-radius: 9px; background: var(--forest); color: white; }
+.preview-loading { min-height: 150px; display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--muted); font-size: 10px; }
+.preview-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1px; border-bottom: 1px solid #d5dfda; background: #d5dfda; }
+.preview-stats > span { padding: 11px 12px; background: rgba(255,255,255,.78); }
+.preview-stats small, .preview-stats strong { display: block; }
+.preview-stats small { color: var(--muted); font-size: 7px; }
+.preview-stats strong { margin-top: 3px; font: 650 18px/1 Georgia, serif; color: var(--forest); }
+.risk-notices, .risk-clear { margin: 12px; padding: 10px 11px; border-radius: 8px; font-size: 9px; }
+.risk-notices { display: grid; gap: 6px; border: 1px solid #e2c8c3; background: #fbf1ef; color: var(--oxblood); }
+.risk-notices > strong { font-size: 9px; }
+.risk-notices > span { display: flex; align-items: center; gap: 6px; }
+.risk-clear { display: flex; align-items: center; gap: 7px; border: 1px solid #c7dacf; background: #f0f7f3; color: var(--forest-2); font-weight: 650; }
+.source-section { padding: 0 12px 10px; }
+.source-section h4 { margin: 0 0 6px; color: var(--brass); font: 700 8px Georgia, serif; letter-spacing: .12em; text-transform: uppercase; }
+.source-section article { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 2px; border-bottom: 1px solid rgba(26,61,50,.09); }
+.source-section article:last-of-type { border-bottom: 0; }
+.source-section article span, .source-section article strong, .source-section article small { display: block; }
+.source-section article strong { font-size: 9px; }
+.source-section article small, .source-section > p { margin: 2px 0 0; color: var(--muted); font-size: 7px; }
+.source-section article b { color: var(--forest-2); font-size: 8px; font-weight: 700; }
+.source-section article.expired { opacity: .62; }
+.source-section article.expired b { color: var(--oxblood); }
+.permission-details { margin: 0 12px 12px; border-top: 1px solid #d5dfda; }
+.permission-details summary { padding: 10px 0; color: var(--forest-2); cursor: pointer; font-size: 9px; font-weight: 700; }
+.permission-details article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; padding: 7px 0; border-top: 1px solid rgba(26,61,50,.08); }
+.permission-details span, .permission-details strong, .permission-details small { display: block; min-width: 0; }
+.permission-details strong { overflow: hidden; font-size: 8px; text-overflow: ellipsis; white-space: nowrap; }
+.permission-details small { color: var(--muted); font-size: 6px; }
+.effective-access > footer { padding: 9px 12px; border-top: 1px solid #d5dfda; color: var(--muted); font-size: 7px; text-align: right; }
 .permission-editor { display: grid; gap: 17px; }
 .permission-editor > aside { display: flex; gap: 9px; align-items: center; padding: 11px 13px; border-radius: 8px; background: var(--brass-soft); color: var(--brass); font-size: 10px; }
+.permission-diff { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 14px; border: 1px solid #cddbd4; border-radius: 9px; background: #f4f8f6; }
+.permission-diff span, .permission-diff small, .permission-diff strong { display: block; }
+.permission-diff small { color: var(--muted); font-size: 8px; }
+.permission-diff strong { margin-top: 3px; font-size: 11px; }
+.permission-diff > span:last-of-type { text-align: right; }
+.permission-diff p { grid-column: 1 / -1; display: flex; align-items: center; gap: 7px; margin: 0; padding-top: 9px; border-top: 1px solid rgba(119,47,45,.18); color: var(--oxblood); font-size: 9px; }
+.permission-diff.destructive { border-color: #dfc4bf; background: #fbf2f0; }
 .permission-editor section h4 { margin: 0 0 8px; color: var(--brass); font: 700 9px Georgia, serif; letter-spacing: .12em; }
 .permission-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
 .permission-grid label { display: flex; gap: 8px; align-items: center; min-width: 0; padding: 9px 10px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
@@ -762,6 +947,8 @@ legend { margin-bottom: 10px; font-size: 11px; font-weight: 750; }
   .admin-summary { grid-template-columns: repeat(2, 1fr); }
   .system-grid { grid-template-columns: 1fr; }
   .settings-panel { grid-row: auto; }
+  .access-layout { grid-template-columns: 1fr; }
+  .effective-access { position: static; }
   .office-access-list article { grid-template-columns: 1fr 120px; }
 }
 @media (max-width: 700px) {
@@ -770,6 +957,8 @@ legend { margin-bottom: 10px; font-size: 11px; font-weight: 750; }
   .admin-tabs button { min-width: 120px; }
   .workspace-heading { align-items: stretch; flex-direction: column; }
   .admin-search { width: 100%; }
+  .effective-access { order: -1; max-height: min(380px, 46vh); overflow-y: auto; }
+  .effective-access > header { position: sticky; top: 0; z-index: 2; }
   .office-access-list article { grid-template-columns: 1fr; }
   .settings-panel > footer { align-items: stretch; flex-direction: column; }
 }
