@@ -1855,5 +1855,633 @@ export const reviewedCopyCatalog = {
   "copy.language.short": {
     "zh": "EN",
     "en": "中文"
+  },
+  "wt.loadFailed": {
+    "zh": "协作任务加载失败",
+    "en": "Could not load work tasks"
+  },
+  "wt.detailFailed": {
+    "zh": "任务详情加载失败",
+    "en": "Could not load task details"
+  },
+  "wt.required": {
+    "zh": "请填写任务名称并选择负责人",
+    "en": "Enter a task name and owner"
+  },
+  "wt.updated": {
+    "zh": "任务已更新",
+    "en": "Task updated"
+  },
+  "wt.assigned": {
+    "zh": "任务已分派",
+    "en": "Task assigned"
+  },
+  "wt.saveFailed": {
+    "zh": "任务保存失败",
+    "en": "Could not save task"
+  },
+  "wt.reasonRequired": {
+    "zh": "请填写取消或重新开启原因",
+    "en": "Add a reason for cancellation or reopening"
+  },
+  "wt.statusUpdated": {
+    "zh": "任务状态已更新并留痕",
+    "en": "Task status updated and recorded"
+  },
+  "wt.statusFailed": {
+    "zh": "状态更新失败",
+    "en": "Could not update status"
+  },
+  "wt.commentPosted": {
+    "zh": "评论已发送",
+    "en": "Comment posted"
+  },
+  "wt.commentFailed": {
+    "zh": "评论发送失败",
+    "en": "Could not post comment"
+  },
+  "wt.noDue": {
+    "zh": "未设置期限",
+    "en": "No due date"
+  },
+  "wt.event.created": {
+    "zh": "创建任务",
+    "en": "Task created"
+  },
+  "wt.event.updated": {
+    "zh": "更新任务信息",
+    "en": "Task details updated"
+  },
+  "wt.event.status": {
+    "zh": "变更任务状态",
+    "en": "Task status changed"
+  },
+  "wt.event.confirmed": {
+    "zh": "确认任务状态",
+    "en": "Task status confirmed"
+  },
+  "wt.event.completed": {
+    "zh": "完成任务",
+    "en": "Task completed"
+  },
+  "wt.event.cancelled": {
+    "zh": "取消任务",
+    "en": "Task cancelled"
+  },
+  "wt.event.reopened": {
+    "zh": "重新开启任务",
+    "en": "Task reopened"
+  },
+  "wt.event.commented": {
+    "zh": "发表协作评论",
+    "en": "Comment posted"
+  },
+  "wt.heroTitle": {
+    "zh": "协作任务工作台",
+    "en": "Team task desk"
+  },
+  "wt.heroDescription": {
+    "zh": "把案件交办、协作意见和完成证据集中在一条可追溯时间线上。",
+    "en": "Keep matter assignments, collaboration and completion evidence on one traceable timeline."
+  },
+  "wt.new": {
+    "zh": "新建任务",
+    "en": "New task"
+  },
+  "wt.overview": {
+    "zh": "任务概览",
+    "en": "Task overview"
+  },
+  "wt.active": {
+    "zh": "进行中",
+    "en": "Active"
+  },
+  "wt.owned": {
+    "zh": "由我负责",
+    "en": "Owned by me"
+  },
+  "wt.dueSeven": {
+    "zh": "七日内到期",
+    "en": "Due in 7 days"
+  },
+  "wt.overdue": {
+    "zh": "已经逾期",
+    "en": "Overdue"
+  },
+  "wt.search": {
+    "zh": "搜索任务、案件或负责人",
+    "en": "Search tasks, matters or owners"
+  },
+  "wt.statusFilter": {
+    "zh": "状态筛选",
+    "en": "Status filter"
+  },
+  "wt.activeFilter": {
+    "zh": "待处理",
+    "en": "Active"
+  },
+  "wt.allStatuses": {
+    "zh": "全部状态",
+    "en": "All statuses"
+  },
+  "wt.ownershipFilter": {
+    "zh": "责任范围",
+    "en": "Ownership filter"
+  },
+  "wt.allVisible": {
+    "zh": "所有可见任务",
+    "en": "All visible tasks"
+  },
+  "wt.assignedByMe": {
+    "zh": "由我分派",
+    "en": "Assigned by me"
+  },
+  "wt.priorityFilter": {
+    "zh": "优先级",
+    "en": "Priority filter"
+  },
+  "wt.allPriorities": {
+    "zh": "全部优先级",
+    "en": "All priorities"
+  },
+  "wt.list": {
+    "zh": "任务列表",
+    "en": "Task list"
+  },
+  "wt.items": {
+    "zh": "项",
+    "en": "items"
+  },
+  "wt.sortHint": {
+    "zh": "按状态、优先级和期限排序",
+    "en": "Ordered by status, priority and due date"
+  },
+  "wt.loading": {
+    "zh": "正在整理协作任务…",
+    "en": "Preparing your task queue…"
+  },
+  "wt.noMatches": {
+    "zh": "当前筛选下没有任务",
+    "en": "No tasks match these filters"
+  },
+  "wt.noMatchesHint": {
+    "zh": "可以调整筛选条件，或新建一项协作任务。",
+    "en": "Adjust the filters or create a new assignment."
+  },
+  "wt.loadingEvidence": {
+    "zh": "正在读取任务证据链…",
+    "en": "Loading task evidence…"
+  },
+  "wt.teamTask": {
+    "zh": "团队任务",
+    "en": "Team task"
+  },
+  "wt.noBrief": {
+    "zh": "暂无补充说明",
+    "en": "No additional brief"
+  },
+  "wt.edit": {
+    "zh": "编辑任务",
+    "en": "Edit task"
+  },
+  "wt.owner": {
+    "zh": "负责人",
+    "en": "Owner"
+  },
+  "wt.assignedBy": {
+    "zh": "分派人",
+    "en": "Assigned by"
+  },
+  "wt.due": {
+    "zh": "截止时间",
+    "en": "Due"
+  },
+  "wt.related": {
+    "zh": "关联事项",
+    "en": "Related matter"
+  },
+  "wt.standalone": {
+    "zh": "独立任务",
+    "en": "Standalone task"
+  },
+  "wt.collaborators": {
+    "zh": "协作成员",
+    "en": "Collaborators"
+  },
+  "wt.noCollaborators": {
+    "zh": "暂无其他参与人",
+    "en": "No additional collaborators"
+  },
+  "wt.discussion": {
+    "zh": "协作讨论",
+    "en": "Discussion"
+  },
+  "wt.noComments": {
+    "zh": "还没有评论",
+    "en": "No comments yet"
+  },
+  "wt.commentPlaceholder": {
+    "zh": "记录进展、交付位置或待确认问题…",
+    "en": "Record progress, deliverable location or open questions…"
+  },
+  "wt.sendComment": {
+    "zh": "发送评论",
+    "en": "Post comment"
+  },
+  "wt.evidence": {
+    "zh": "证据时间线",
+    "en": "Evidence timeline"
+  },
+  "wt.start": {
+    "zh": "开始处理",
+    "en": "Start"
+  },
+  "wt.backTodo": {
+    "zh": "退回待办",
+    "en": "Back to todo"
+  },
+  "wt.complete": {
+    "zh": "完成任务",
+    "en": "Complete"
+  },
+  "wt.cancel": {
+    "zh": "取消",
+    "en": "Cancel"
+  },
+  "wt.reopen": {
+    "zh": "重新开启",
+    "en": "Reopen"
+  },
+  "wt.restore": {
+    "zh": "恢复任务",
+    "en": "Restore"
+  },
+  "wt.select": {
+    "zh": "选择一项任务查看详情",
+    "en": "Select a task to inspect"
+  },
+  "wt.selectHint": {
+    "zh": "负责人、讨论和状态证据会显示在这里。",
+    "en": "Ownership, discussion and evidence will appear here."
+  },
+  "wt.editDialog": {
+    "zh": "编辑协作任务",
+    "en": "Edit work task"
+  },
+  "wt.assignDialog": {
+    "zh": "分派协作任务",
+    "en": "Assign work task"
+  },
+  "wt.name": {
+    "zh": "任务名称",
+    "en": "Task name"
+  },
+  "wt.namePlaceholder": {
+    "zh": "用动词开头，例如：复核证据目录",
+    "en": "Start with an action, e.g. Review evidence index"
+  },
+  "wt.priority": {
+    "zh": "优先级",
+    "en": "Priority"
+  },
+  "wt.relatedMatter": {
+    "zh": "关联案件",
+    "en": "Related matter"
+  },
+  "wt.noMatter": {
+    "zh": "不关联案件",
+    "en": "No related matter"
+  },
+  "wt.participants": {
+    "zh": "参与人",
+    "en": "Collaborators"
+  },
+  "wt.participantPlaceholder": {
+    "zh": "可选：添加协作成员",
+    "en": "Optional: add collaborators"
+  },
+  "wt.brief": {
+    "zh": "任务说明",
+    "en": "Brief"
+  },
+  "wt.briefPlaceholder": {
+    "zh": "说明交付标准、资料位置和需要注意的风险。",
+    "en": "Describe the deliverable, source materials and legal risks."
+  },
+  "wt.saving": {
+    "zh": "保存中…",
+    "en": "Saving…"
+  },
+  "wt.save": {
+    "zh": "保存任务",
+    "en": "Save task"
+  },
+  "wt.statusDialog": {
+    "zh": "更新任务状态",
+    "en": "Update task status"
+  },
+  "wt.reasonLabel": {
+    "zh": "原因（必填）",
+    "en": "Reason (required)"
+  },
+  "wt.progressLabel": {
+    "zh": "进展说明（可选）",
+    "en": "Progress note (optional)"
+  },
+  "wt.actionPlaceholder": {
+    "zh": "说明完成结果、取消原因或重新开启原因。",
+    "en": "Record the result, cancellation reason or reopening reason."
+  },
+  "wt.back": {
+    "zh": "返回",
+    "en": "Back"
+  },
+  "wt.confirm": {
+    "zh": "确认并留痕",
+    "en": "Confirm and record"
+  },
+  "db.greetingMorning": {
+    "zh": "{name}，早上好",
+    "en": "Good morning, {name}"
+  },
+  "db.greetingAfternoon": {
+    "zh": "{name}，下午好",
+    "en": "Good afternoon, {name}"
+  },
+  "db.greetingEvening": {
+    "zh": "{name}，晚上好",
+    "en": "Good evening, {name}"
+  },
+  "db.defaultName": {
+    "zh": "律师",
+    "en": "Counsel"
+  },
+  "db.heroDescription": {
+    "zh": "今天只需从下面的优先事项开始；案件、期限、任务和审批已经按风险集中整理。",
+    "en": "Start with the priority docket below. Matters, deadlines, tasks and approvals are already ordered by risk."
+  },
+  "db.todayOverview": {
+    "zh": "今日工作概览",
+    "en": "Today overview"
+  },
+  "db.activeMatters": {
+    "zh": "进行中案件",
+    "en": "Active matters"
+  },
+  "db.activeMattersHint": {
+    "zh": "与你相关的在办事项",
+    "en": "Matters in your accessible scope"
+  },
+  "db.myTasks": {
+    "zh": "我的协作任务",
+    "en": "My work tasks"
+  },
+  "db.myTasksHint": {
+    "zh": "待办与进行中",
+    "en": "Todo and in progress"
+  },
+  "db.myApprovals": {
+    "zh": "待我审批",
+    "en": "Approvals for me"
+  },
+  "db.myApprovalsHint": {
+    "zh": "需要作出决定",
+    "en": "Decisions waiting"
+  },
+  "db.riskAlerts": {
+    "zh": "风险提醒",
+    "en": "Risk alerts"
+  },
+  "db.overdueCount": {
+    "zh": "{count} 项已逾期",
+    "en": "{count} overdue"
+  },
+  "db.dueCount": {
+    "zh": "{count} 项七日内到期",
+    "en": "{count} due in 7 days"
+  },
+  "db.loadFailed": {
+    "zh": "工作台数据未能完整加载，请刷新后重试。",
+    "en": "The workspace could not load completely. Please retry."
+  },
+  "db.retry": {
+    "zh": "重新加载",
+    "en": "Retry"
+  },
+  "db.priorityTitle": {
+    "zh": "现在最值得处理",
+    "en": "What deserves attention now"
+  },
+  "db.actionItems": {
+    "zh": "项行动",
+    "en": "actions"
+  },
+  "db.loading": {
+    "zh": "正在按风险整理行动清单…",
+    "en": "Ordering your action docket by risk…"
+  },
+  "db.noActions": {
+    "zh": "当前没有紧急行动项",
+    "en": "No urgent actions right now"
+  },
+  "db.noActionsHint": {
+    "zh": "可以继续推进案件工作，或检查通知中的协作信息。",
+    "en": "Continue matter work or review collaboration notifications."
+  },
+  "db.owner": {
+    "zh": "负责人",
+    "en": "Owner"
+  },
+  "db.deadline": {
+    "zh": "法律期限",
+    "en": "Deadline"
+  },
+  "db.approval": {
+    "zh": "待审批",
+    "en": "Approval"
+  },
+  "db.task": {
+    "zh": "协作任务",
+    "en": "Work task"
+  },
+  "db.noDue": {
+    "zh": "未设期限",
+    "en": "No due date"
+  },
+  "db.overdue": {
+    "zh": "已逾期",
+    "en": "Overdue"
+  },
+  "db.focus": {
+    "zh": "今日建议",
+    "en": "Today’s focus"
+  },
+  "db.focusOverdue": {
+    "zh": "先处理逾期事项",
+    "en": "Resolve overdue items first"
+  },
+  "db.focusApprovals": {
+    "zh": "先清空待审批队列",
+    "en": "Clear approval decisions first"
+  },
+  "db.focusMatter": {
+    "zh": "推进最接近期限的案件",
+    "en": "Advance the nearest matter deadline"
+  },
+  "db.focusOverdueHint": {
+    "zh": "有 {count} 项已经越过期限，建议先确认责任人与补救措施。",
+    "en": "{count} items are overdue. Confirm ownership and mitigation first."
+  },
+  "db.focusApprovalHint": {
+    "zh": "有 {count} 项审批等待决定，及时处理可减少团队阻塞。",
+    "en": "{count} approvals are waiting and may be blocking the team."
+  },
+  "db.focusStableHint": {
+    "zh": "当前风险平稳，可以把时间投入到案件实质工作。",
+    "en": "Risk is stable; invest the time in substantive matter work."
+  },
+  "db.activeMatterTitle": {
+    "zh": "在办案件",
+    "en": "Active matters"
+  },
+  "db.all": {
+    "zh": "全部",
+    "en": "All"
+  },
+  "db.noMatters": {
+    "zh": "暂无在办案件",
+    "en": "No active matters"
+  },
+  "db.unread": {
+    "zh": "条未读通知",
+    "en": "unread notifications"
+  },
+  "db.unreadHint": {
+    "zh": "审批、期限和协作更新集中在通知中心",
+    "en": "Approvals, deadlines and collaboration updates"
+  },
+  "ap.heroTitle": {
+    "zh": "审批决策中心",
+    "en": "Approval decision desk"
+  },
+  "ap.heroDescription": {
+    "zh": "把待决事项、处理理由和业务状态回写集中在一个可审计工作台。",
+    "en": "Keep pending decisions, written reasons and business-state updates in one auditable desk."
+  },
+  "ap.refresh": {
+    "zh": "刷新队列",
+    "en": "Refresh"
+  },
+  "ap.overview": {
+    "zh": "审批概览",
+    "en": "Approval overview"
+  },
+  "ap.forMe": {
+    "zh": "待我处理",
+    "en": "For my decision"
+  },
+  "ap.oldest": {
+    "zh": "最长等待",
+    "en": "Oldest waiting"
+  },
+  "ap.recent": {
+    "zh": "近期处理",
+    "en": "Recent decisions"
+  },
+  "ap.sealFlow": {
+    "zh": "用印流转",
+    "en": "Seal requests"
+  },
+  "ap.sections": {
+    "zh": "审批中心栏目",
+    "en": "Approval desk sections"
+  },
+  "ap.pending": {
+    "zh": "待办决策",
+    "en": "Pending decisions"
+  },
+  "ap.history": {
+    "zh": "处理记录",
+    "en": "Decision history"
+  },
+  "ap.seals": {
+    "zh": "用印申请",
+    "en": "Seal requests"
+  },
+  "ap.queueTitle": {
+    "zh": "需要我作出决定",
+    "en": "Decisions assigned to me"
+  },
+  "ap.items": {
+    "zh": "项",
+    "en": "items"
+  },
+  "ap.loading": {
+    "zh": "正在同步审批队列…",
+    "en": "Syncing approval queue…"
+  },
+  "ap.entered": {
+    "zh": "进入队列",
+    "en": "Entered queue"
+  },
+  "ap.assignee": {
+    "zh": "当前处理人",
+    "en": "Current assignee"
+  },
+  "ap.businessType": {
+    "zh": "业务类型",
+    "en": "Business type"
+  },
+  "ap.process": {
+    "zh": "流程实例",
+    "en": "Process instance"
+  },
+  "ap.syncTitle": {
+    "zh": "决定将同步回业务记录",
+    "en": "Decision updates the business record"
+  },
+  "ap.syncHint": {
+    "zh": "通过或驳回会事务性更新案件、合同、用印、请假或报销状态，并写入审计日志。",
+    "en": "Approve or reject updates the authoritative business state and audit log transactionally."
+  },
+  "ap.select": {
+    "zh": "选择一项审批",
+    "en": "Select an approval"
+  },
+  "ap.historyTitle": {
+    "zh": "我的处理记录",
+    "en": "My decision history"
+  },
+  "ap.allOutcomes": {
+    "zh": "全部结果",
+    "en": "All outcomes"
+  },
+  "ap.noHistory": {
+    "zh": "当前没有符合条件的处理记录",
+    "en": "No decision history matches this filter"
+  },
+  "ap.sealTitle": {
+    "zh": "用印流转登记",
+    "en": "Seal request register"
+  },
+  "ap.requestedBy": {
+    "zh": "申请人",
+    "en": "Requested by"
+  },
+  "ap.rejectWarning": {
+    "zh": "驳回将终止本次流程并取消剩余待办，请写明可执行的修改意见。",
+    "en": "Rejecting ends this workflow and cancels remaining tasks. Give actionable revision guidance."
+  },
+  "ap.justEntered": {
+    "zh": "刚刚进入队列",
+    "en": "Just entered the queue"
+  },
+  "ap.waitingHours": {
+    "zh": "等待 {count} 小时",
+    "en": "Waiting {count}h"
+  },
+  "ap.waitingDays": {
+    "zh": "等待 {count} 天",
+    "en": "Waiting {count}d"
   }
 } as const

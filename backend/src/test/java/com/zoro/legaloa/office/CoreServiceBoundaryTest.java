@@ -127,7 +127,7 @@ class CoreServiceBoundaryTest {
         assertThatThrownBy(() -> service.create(new CreateAnnouncementRequest(
                 "Title", null, "Body", "NOTICE", "NORMAL",
                 "OFFICE_ONLY", List.of(), null, null
-        )))
+                )))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
                         assertThat(exception.code()).isEqualTo("ENUM_INVALID"));
         verifyNoInteractions(jdbcClient);
@@ -163,7 +163,7 @@ class CoreServiceBoundaryTest {
                 "CRITICAL", null, null
         )))
                 .isInstanceOfSatisfying(BusinessException.class, exception ->
-                        assertThat(exception.code()).isEqualTo("ENUM_INVALID"));
+                        assertThat(exception.code()).isEqualTo("WORK_TASK_PRIORITY_INVALID"));
         verifyNoInteractions(jdbcClient);
     }
 

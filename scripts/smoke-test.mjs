@@ -769,16 +769,54 @@ await check('协作任务分派、状态流转、评论与可见范围', async (
   })
   assert(task.status === 'TODO' && task.ownerUserId === lawyerId, '任务分派不正确')
   const started = await api(`/work-tasks/${task.id}/status`, {
-    method: 'PATCH', body: JSON.stringify({ status: 'IN_PROGRESS' }),
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: 'IN_PROGRESS',
+      expectedVersion: task.version,
+      note: '开始整理验收材料',
+    }),
   }, 'zhanglawyer')
   assert(started.status === 'IN_PROGRESS', '任务未进入进行中')
   await api(`/work-tasks/${task.id}/comments`, {
     method: 'POST', body: JSON.stringify({ content: '已完成首轮材料整理' }),
   }, 'zhanglawyer')
   const done = await api(`/work-tasks/${task.id}/status`, {
-    method: 'PATCH', body: JSON.stringify({ status: 'DONE' }),
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: 'DONE',
+      expectedVersion: started.version,
+      note: '归档目录和页码已复核',
+    }),
   }, 'zhanglawyer')
   assert(done.status === 'DONE' && done.commentCount === 1, '任务完成或评论计数不正确')
+  const detail = await api(`/work-tasks/${task.id}`, {}, 'zhanglawyer')
+  assert(detail.events.some((event) => event.action === 'COMPLETED'), '任务完成事件未留痕')
+  assert(detail.comments.length === 1, '任务评论时间线不完整')
+  await expectApiError(`/work-tasks/${task.id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: 'IN_PROGRESS',
+      expectedVersion: done.version,
+      note: '',
+    }),
+  }, 'zhanglawyer', 400, 'WORK_TASK_STATUS_NOTE_REQUIRED')
+  const reopened = await api(`/work-tasks/${task.id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: 'IN_PROGRESS',
+      expectedVersion: done.version,
+      note: '发现一处页码需要重新核对',
+    }),
+  }, 'zhanglawyer')
+  assert(reopened.status === 'IN_PROGRESS', '任务重新开启失败')
+  await expectApiError(`/work-tasks/${task.id}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({
+      status: 'DONE',
+      expectedVersion: done.version,
+      note: '使用过期版本完成任务',
+    }),
+  }, 'zhanglawyer', 409, 'WORK_TASK_VERSION_CONFLICT')
   const assistantTasks = await api('/work-tasks', {}, 'liassistant')
   assert(!assistantTasks.some((item) => item.id === task.id), '无关成员看到了协作任务')
 })
@@ -1563,15 +1601,25 @@ await check('P1 委托、工时、账单、回款与财务报表闭环', async (
   assert(Number(report.collectedAmount) >= Number(issued.totalAmount), '财务报表未反映已回款')
 })
 
-await check('P1 管理控制台、集成健康与组织同步预演', async () => {
-  const [settings, users, roles, integrations] = await Promise.all([
+await check('P1 管理控制台、任务审批权限、集成健康与组织同步预演', async () => {
+  const [settings, users, roles, permissions, integrations] = await Promise.all([
     api('/admin/settings'),
     api('/admin/users?page=1&size=30'),
     api('/admin/roles'),
+    api('/admin/permissions'),
     api('/admin/integrations'),
   ])
   assert(settings.supportedLocales.includes('zh-CN') && settings.supportedLocales.includes('en-US'), '管理端双语设置缺失')
   assert(users.total >= 3 && roles.some((role) => role.code === 'ADMIN'), '用户角色控制台数据缺失')
+  const permissionCodes = new Set(permissions.map((permission) => permission.code))
+  assert(
+    ['TASK_CREATE', 'TASK_MANAGE', 'WORKFLOW_APPROVE'].every((code) => permissionCodes.has(code)),
+    '管理员权限矩阵缺少任务或审批权限',
+  )
+  assert(
+    roles.some((role) => role.code === 'LAWYER' && role.permissions.includes('TASK_CREATE')),
+    '律师角色缺少协作任务创建权限',
+  )
   assert(
     integrations.some((item) => item.integrationType === 'STORAGE' && item.healthStatus === 'UP')
       && integrations.some((item) => item.integrationType === 'SCANNER'),

@@ -163,6 +163,9 @@ public class WorkflowService {
     @Transactional(readOnly = true)
     public List<WorkflowTaskView> tasks() {
         RequestActor actor = actorProvider.current();
+        if (!authorizationService.hasPermission(actor, "WORKFLOW_APPROVE")) {
+            return List.of();
+        }
         List<String> roles = authorizationService.roles(actor);
         Map<String, Task> unique = new LinkedHashMap<>();
         taskService.createTaskQuery()
@@ -196,6 +199,7 @@ public class WorkflowService {
         String normalizedStatus = status == null || status.isBlank()
                 ? "PENDING" : status.toUpperCase(Locale.ROOT);
         List<String> roles = authorizationService.roles(actor);
+        boolean canApprove = authorizationService.hasPermission(actor, "WORKFLOW_APPROVE");
         OfficeAccessScope scope = officeAccessService.scope(actor);
         return jdbcClient.sql("""
                         SELECT at.flowable_task_id, at.task_name, wl.process_instance_id,
@@ -212,7 +216,7 @@ public class WorkflowService {
                               OR at.completed_by = :userId
                               OR (
                                 (
-                                  (:hasRoles AND at.candidate_group IN (:roles))
+                                  (:canApprove AND :hasRoles AND at.candidate_group IN (:roles))
                                   OR :viewAll
                                 )
                                 AND (
@@ -310,6 +314,7 @@ public class WorkflowService {
                 .param("organizationId", actor.organizationId())
                 .param("status", normalizedStatus)
                 .param("userId", actor.userId())
+                .param("canApprove", canApprove)
                 .param("hasRoles", !roles.isEmpty())
                 .param("roles", roles.isEmpty() ? List.of("__NONE__") : roles)
                 .param("viewAll", authorizationService.hasPermission(actor, "WORKFLOW_VIEW_ALL"))
@@ -471,12 +476,13 @@ public class WorkflowService {
         RequestActor targetActor = new RequestActor(
                 target.id(), actor.organizationId(), target.username(), target.displayName()
         );
-        if (!officeAccessService.canAccessBusiness(
+        if (!authorizationService.hasPermission(targetActor, "WORKFLOW_APPROVE")
+                || !officeAccessService.canAccessBusiness(
                 targetActor, link.businessType(), link.businessId()
         )) {
             throw new BusinessException(
                     "TRANSFER_TARGET_SCOPE_DENIED",
-                    "转交目标无权访问该业务所属办公室或案件",
+                    "转交目标缺少审批权限，或无权访问该业务所属办公室或案件",
                     HttpStatus.BAD_REQUEST
             );
         }
@@ -539,14 +545,16 @@ public class WorkflowService {
                 ))
                 .list()
                 .stream()
-                .filter(target -> officeAccessService.canAccessBusiness(
-                        new RequestActor(
-                                target.id(), actor.organizationId(),
-                                target.username(), target.displayName()
-                        ),
-                        link.businessType(),
-                        link.businessId()
-                ))
+                .filter(target -> {
+                    RequestActor targetActor = new RequestActor(
+                            target.id(), actor.organizationId(),
+                            target.username(), target.displayName()
+                    );
+                    return authorizationService.hasPermission(targetActor, "WORKFLOW_APPROVE")
+                            && officeAccessService.canAccessBusiness(
+                            targetActor, link.businessType(), link.businessId()
+                    );
+                })
                 .map(target -> new TransferTargetView(
                         target.id(), target.username(), target.displayName()
                 ))
@@ -622,6 +630,9 @@ public class WorkflowService {
     }
 
     private boolean canAct(RequestActor actor, Task task) {
+        if (!authorizationService.hasPermission(actor, "WORKFLOW_APPROVE")) {
+            return false;
+        }
         if (actor.username().equals(task.getAssignee())) {
             return true;
         }
@@ -717,16 +728,21 @@ public class WorkflowService {
                     ))
                     .list();
             candidates.stream()
-                    .filter(candidate -> officeAccessService.canAccessBusiness(
-                            new RequestActor(
-                                    candidate.id(),
-                                    link.organizationId(),
-                                    candidate.username(),
-                                    candidate.displayName()
-                            ),
-                            link.businessType(),
-                            link.businessId()
-                    ))
+                    .filter(candidate -> {
+                        RequestActor candidateActor = new RequestActor(
+                                candidate.id(),
+                                link.organizationId(),
+                                candidate.username(),
+                                candidate.displayName()
+                        );
+                        return authorizationService.hasPermission(
+                                candidateActor, "WORKFLOW_APPROVE"
+                        ) && officeAccessService.canAccessBusiness(
+                                candidateActor,
+                                link.businessType(),
+                                link.businessId()
+                        );
+                    })
                     .map(UserTarget::id)
                     .forEach(recipients::add);
         }

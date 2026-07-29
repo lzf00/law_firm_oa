@@ -170,7 +170,7 @@ class RequestValidationTest {
                 "Task", null, null, List.of(), FUTURE,
                 "HIGH", null, null
         ), "ownerUserId");
-        assertInvalid(new ChangeTaskStatusRequest(" "), "status");
+        assertInvalid(new ChangeTaskStatusRequest(" ", 0, null), "status");
         assertInvalid(new AddTaskCommentRequest(" "), "content");
     }
 

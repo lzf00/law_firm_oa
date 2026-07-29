@@ -2,6 +2,7 @@ package com.zoro.legaloa.office;
 
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,6 +35,19 @@ public class WorkTaskController {
     @PostMapping
     WorkTaskView create(@Valid @RequestBody CreateWorkTaskRequest request) {
         return service.create(request);
+    }
+
+    @GetMapping("/{id}")
+    WorkTaskDetailView detail(@PathVariable UUID id) {
+        return service.detail(id);
+    }
+
+    @PutMapping("/{id}")
+    WorkTaskDetailView update(
+            @PathVariable UUID id,
+            @Valid @RequestBody UpdateWorkTaskRequest request
+    ) {
+        return service.update(id, request);
     }
 
     @PatchMapping("/{id}/status")
@@ -62,12 +77,43 @@ public class WorkTaskController {
             UUID relatedBusinessId
     ) {}
 
-    public record ChangeTaskStatusRequest(@NotBlank @Size(max = 32) String status) {}
+    public record UpdateWorkTaskRequest(
+            @NotNull @Min(0) Integer expectedVersion,
+            @NotBlank @Size(max = 300) String title,
+            @Size(max = 5000) String description,
+            @NotNull UUID ownerUserId,
+            List<UUID> participantUserIds,
+            @Future Instant dueAt,
+            @Size(max = 32) String priority,
+            @Size(max = 80) String relatedBusinessType,
+            UUID relatedBusinessId
+    ) {}
+
+    public record ChangeTaskStatusRequest(
+            @NotBlank @Size(max = 32) String status,
+            @NotNull @Min(0) Integer expectedVersion,
+            @Size(max = 1000) String note
+    ) {}
 
     public record AddTaskCommentRequest(@NotBlank @Size(max = 1000) String content) {}
 
     public record TaskCommentView(
             UUID id, String authorName, String content, Instant createdAt
+    ) {}
+
+    public record TaskParticipantView(
+            UUID userId, String displayName, String participantRole, Instant joinedAt
+    ) {}
+
+    public record TaskEventView(
+            UUID id,
+            String action,
+            UUID actorUserId,
+            String actorName,
+            String fromStatus,
+            String toStatus,
+            String note,
+            Instant occurredAt
     ) {}
 
     public record WorkTaskView(
@@ -85,6 +131,26 @@ public class WorkTaskController {
             long commentCount,
             UUID officeId,
             String officeNameZh,
-            String officeNameEn
+            String officeNameEn,
+            String relatedBusinessType,
+            UUID relatedBusinessId,
+            String relatedBusinessLabel,
+            int version,
+            long participantCount,
+            long eventCount,
+            UUID completedBy,
+            String completedByName,
+            String completionNote,
+            Instant cancelledAt,
+            UUID cancelledBy,
+            String cancelledByName,
+            String cancellationReason
+    ) {}
+
+    public record WorkTaskDetailView(
+            WorkTaskView task,
+            List<TaskParticipantView> participants,
+            List<TaskCommentView> comments,
+            List<TaskEventView> events
     ) {}
 }
