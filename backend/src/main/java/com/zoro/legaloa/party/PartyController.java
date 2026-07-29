@@ -60,6 +60,7 @@ public class PartyController {
             String displayName,
             String unifiedSocialCreditCode,
             String riskLevel,
-            List<String> aliases
+            List<String> aliases,
+            String notes
     ) {}
 }

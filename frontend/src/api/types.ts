@@ -81,6 +81,19 @@ export interface Party {
   unifiedSocialCreditCode?: string
   riskLevel: string
   aliases: string[]
+  notes?: string
+}
+
+export interface Client {
+  id: string
+  partyId: string
+  clientNumber: string
+  displayName: string
+  partyType: string
+  ownerUserId?: string
+  ownerName?: string
+  status: string
+  source?: string
 }
 
 export interface Matter {

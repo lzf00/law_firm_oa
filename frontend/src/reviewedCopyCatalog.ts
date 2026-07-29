@@ -2483,5 +2483,477 @@ export const reviewedCopyCatalog = {
   "ap.waitingDays": {
     "zh": "等待 {count} 天",
     "en": "Waiting {count}d"
+  },
+  "party.kicker": {
+    "zh": "关系准入与客户主档",
+    "en": "Relationship intake and client master"
+  },
+  "party.heroTitle": {
+    "zh": "客户与利益相关主体",
+    "en": "Clients and interested parties"
+  },
+  "party.heroDescription": {
+    "zh": "统一维护客户、相对方和关联主体，确保立项、冲突检索与案件材料使用同一份可信主档。",
+    "en": "Maintain clients, opposing parties and related entities once, so intake, conflict checks and matter records share one trusted profile."
+  },
+  "party.newParty": {
+    "zh": "登记新主体",
+    "en": "Register party"
+  },
+  "party.overview": {
+    "zh": "关系主档概览",
+    "en": "Relationship overview"
+  },
+  "party.totalParties": {
+    "zh": "主体总数",
+    "en": "Total parties"
+  },
+  "party.totalHint": {
+    "zh": "客户与相对方统一口径",
+    "en": "One source for every relationship"
+  },
+  "party.activeClients": {
+    "zh": "有效客户",
+    "en": "Active clients"
+  },
+  "party.clientHint": {
+    "zh": "已建立客户编号",
+    "en": "Registered client numbers"
+  },
+  "party.prospects": {
+    "zh": "待转客户",
+    "en": "Not yet clients"
+  },
+  "party.prospectHint": {
+    "zh": "已建主体但未登记客户",
+    "en": "Profiles without client records"
+  },
+  "party.riskParties": {
+    "zh": "风险主体",
+    "en": "Risk-marked parties"
+  },
+  "party.riskHint": {
+    "zh": "需要立项时重点复核",
+    "en": "Review carefully during intake"
+  },
+  "party.searchPlaceholder": {
+    "zh": "搜索名称、曾用名或别名",
+    "en": "Search name, former name or alias"
+  },
+  "party.filters": {
+    "zh": "关系类型筛选",
+    "en": "Relationship filters"
+  },
+  "party.filterAll": {
+    "zh": "全部主体",
+    "en": "All parties"
+  },
+  "party.filterClients": {
+    "zh": "正式客户",
+    "en": "Clients"
+  },
+  "party.filterProspects": {
+    "zh": "未转客户",
+    "en": "Not clients"
+  },
+  "party.filterRisk": {
+    "zh": "风险关注",
+    "en": "Risk attention"
+  },
+  "party.queueKicker": {
+    "zh": "关系目录",
+    "en": "Relationship directory"
+  },
+  "party.queueTitle": {
+    "zh": "主体列表",
+    "en": "Party profiles"
+  },
+  "party.loading": {
+    "zh": "正在读取关系主档…",
+    "en": "Loading relationship profiles…"
+  },
+  "party.clientBadge": {
+    "zh": "客户",
+    "en": "Client"
+  },
+  "party.prospectBadge": {
+    "zh": "主体",
+    "en": "Party"
+  },
+  "party.noMatch": {
+    "zh": "没有匹配主体",
+    "en": "No matching party"
+  },
+  "party.noMatchHint": {
+    "zh": "换一个名称或调整关系筛选。",
+    "en": "Try another name or relationship filter."
+  },
+  "party.profileKicker": {
+    "zh": "可信关系主档",
+    "en": "Trusted relationship profile"
+  },
+  "party.editParty": {
+    "zh": "编辑主体",
+    "en": "Edit party"
+  },
+  "party.convertClient": {
+    "zh": "登记为客户",
+    "en": "Register as client"
+  },
+  "party.identityCode": {
+    "zh": "统一社会信用代码",
+    "en": "Registration or identity code"
+  },
+  "party.riskLevel": {
+    "zh": "风险等级",
+    "en": "Risk level"
+  },
+  "party.aliases": {
+    "zh": "别名与曾用名",
+    "en": "Aliases and former names"
+  },
+  "party.relationshipStatus": {
+    "zh": "客户关系",
+    "en": "Client relationship"
+  },
+  "party.registeredClient": {
+    "zh": "已登记正式客户",
+    "en": "Registered client"
+  },
+  "party.notClient": {
+    "zh": "尚未登记为客户",
+    "en": "Not registered as a client"
+  },
+  "party.internalNote": {
+    "zh": "内部识别备注",
+    "en": "Internal identification note"
+  },
+  "party.noNote": {
+    "zh": "暂无内部备注。建议记录容易混淆的名称、集团关系或身份识别要点。",
+    "en": "No internal note. Record confusing names, group relationships or identification points when useful."
+  },
+  "party.clientRecord": {
+    "zh": "客户档案",
+    "en": "Client record"
+  },
+  "party.clientRecordHint": {
+    "zh": "客户编号、负责人和来源将用于案件立项",
+    "en": "Client number, owner and source are used during matter intake"
+  },
+  "party.editClient": {
+    "zh": "编辑客户档案",
+    "en": "Edit client record"
+  },
+  "party.clientNumber": {
+    "zh": "客户编号",
+    "en": "Client number"
+  },
+  "party.owner": {
+    "zh": "客户负责人",
+    "en": "Relationship owner"
+  },
+  "party.source": {
+    "zh": "客户来源",
+    "en": "Client source"
+  },
+  "party.status": {
+    "zh": "档案状态",
+    "en": "Record status"
+  },
+  "party.notConverted": {
+    "zh": "该主体尚未登记为正式客户",
+    "en": "This party is not yet a registered client"
+  },
+  "party.notConvertedHint": {
+    "zh": "相对方和关联方无需转为客户；接受委托后再登记即可。",
+    "en": "Opposing and related parties need no client record. Register one only after accepting an engagement."
+  },
+  "party.selectParty": {
+    "zh": "从左侧选择一个主体查看档案",
+    "en": "Select a party to view its profile"
+  },
+  "party.partyType": {
+    "zh": "主体类型",
+    "en": "Party type"
+  },
+  "party.displayName": {
+    "zh": "法定或常用名称",
+    "en": "Legal or commonly used name"
+  },
+  "party.aliasInput": {
+    "zh": "别名与曾用名",
+    "en": "Aliases and former names"
+  },
+  "party.aliasHint": {
+    "zh": "多个名称用逗号分隔",
+    "en": "Separate multiple names with commas"
+  },
+  "party.saveParty": {
+    "zh": "保存主体档案",
+    "en": "Save party profile"
+  },
+  "party.unassigned": {
+    "zh": "暂不指定负责人",
+    "en": "No owner yet"
+  },
+  "party.sourceHint": {
+    "zh": "例如：老客户推荐、官网咨询",
+    "en": "e.g. client referral or website enquiry"
+  },
+  "party.saveClient": {
+    "zh": "保存客户档案",
+    "en": "Save client record"
+  },
+  "party.loadFailed": {
+    "zh": "关系主档加载失败",
+    "en": "Failed to load relationship profiles"
+  },
+  "party.nameRequired": {
+    "zh": "请填写主体名称",
+    "en": "Party name is required"
+  },
+  "party.saved": {
+    "zh": "主体档案已保存",
+    "en": "Party profile saved"
+  },
+  "party.saveFailed": {
+    "zh": "主体档案保存失败",
+    "en": "Failed to save party profile"
+  },
+  "party.clientNumberRequired": {
+    "zh": "请填写客户编号",
+    "en": "Client number is required"
+  },
+  "party.clientSaved": {
+    "zh": "客户档案已保存",
+    "en": "Client record saved"
+  },
+  "party.clientSaveFailed": {
+    "zh": "客户档案保存失败",
+    "en": "Failed to save client record"
+  },
+  "matter.kicker": {
+    "zh": "案件组合与立项准入",
+    "en": "Matter portfolio and intake"
+  },
+  "matter.heroTitle": {
+    "zh": "案件中心",
+    "en": "Matter center"
+  },
+  "matter.heroDescription": {
+    "zh": "按状态快速定位在办事项，并在立项时一次关联客户、相对方、承办团队与办公室。",
+    "en": "Find active work by lifecycle stage and connect the client, opposing parties, responsible team and office during intake."
+  },
+  "matter.newMatter": {
+    "zh": "发起案件立项",
+    "en": "Start matter intake"
+  },
+  "matter.overview": {
+    "zh": "案件组合概览",
+    "en": "Matter portfolio overview"
+  },
+  "matter.active": {
+    "zh": "在办案件",
+    "en": "Active matters"
+  },
+  "matter.activeHint": {
+    "zh": "当前成员范围内",
+    "en": "Within your membership scope"
+  },
+  "matter.intake": {
+    "zh": "冲突审查中",
+    "en": "In conflict review"
+  },
+  "matter.intakeHint": {
+    "zh": "尚未进入正式承办",
+    "en": "Not yet active"
+  },
+  "matter.closed": {
+    "zh": "结案与归档",
+    "en": "Closed and archived"
+  },
+  "matter.closedHint": {
+    "zh": "已完成业务记录",
+    "en": "Completed matter records"
+  },
+  "matter.offices": {
+    "zh": "涉及办公室",
+    "en": "Offices involved"
+  },
+  "matter.officesHint": {
+    "zh": "按可见案件统计",
+    "en": "Based on visible matters"
+  },
+  "matter.searchPlaceholder": {
+    "zh": "搜索案件编号、名称、律师或司法辖区",
+    "en": "Search number, title, counsel or jurisdiction"
+  },
+  "matter.filters": {
+    "zh": "案件状态筛选",
+    "en": "Matter filters"
+  },
+  "matter.filterAll": {
+    "zh": "全部案件",
+    "en": "All matters"
+  },
+  "matter.filterActive": {
+    "zh": "在办",
+    "en": "Active"
+  },
+  "matter.filterIntake": {
+    "zh": "冲突审查",
+    "en": "Conflict review"
+  },
+  "matter.filterPaused": {
+    "zh": "暂停",
+    "en": "Suspended"
+  },
+  "matter.filterClosed": {
+    "zh": "结案归档",
+    "en": "Closed"
+  },
+  "matter.listKicker": {
+    "zh": "案件组合",
+    "en": "Matter portfolio"
+  },
+  "matter.listTitle": {
+    "zh": "我可访问的案件",
+    "en": "Matters I can access"
+  },
+  "matter.loading": {
+    "zh": "正在读取案件组合…",
+    "en": "Loading matter portfolio…"
+  },
+  "matter.noMatch": {
+    "zh": "没有匹配案件",
+    "en": "No matching matter"
+  },
+  "matter.noMatchHint": {
+    "zh": "调整关键词或状态筛选后再试。",
+    "en": "Try another keyword or lifecycle filter."
+  },
+  "matter.previewKicker": {
+    "zh": "案件速览",
+    "en": "Matter at a glance"
+  },
+  "matter.lifecycle": {
+    "zh": "当前生命周期",
+    "en": "Current lifecycle"
+  },
+  "matter.responsible": {
+    "zh": "承办律师",
+    "en": "Responsible counsel"
+  },
+  "matter.office": {
+    "zh": "承办办公室",
+    "en": "Responsible office"
+  },
+  "matter.jurisdiction": {
+    "zh": "司法辖区",
+    "en": "Jurisdiction"
+  },
+  "matter.team": {
+    "zh": "办案成员",
+    "en": "Matter team"
+  },
+  "matter.openWorkspace": {
+    "zh": "打开案件工作台",
+    "en": "Open matter workspace"
+  },
+  "matter.workspaceHint": {
+    "zh": "工作台集中展示期限、合同、文档、审批、卷宗和完整活动记录。",
+    "en": "The workspace brings together deadlines, contracts, documents, approvals, archives and activity."
+  },
+  "matter.selectMatter": {
+    "zh": "选择一个案件查看摘要",
+    "en": "Select a matter to view its summary"
+  },
+  "matter.intakeGuide": {
+    "zh": "先建立可信关系，再发起冲突审查",
+    "en": "Connect trusted relationships before conflict review"
+  },
+  "matter.intakeGuideHint": {
+    "zh": "客户与相对方将随立项进入案件当事人清单，避免后续重复录入。",
+    "en": "The client and opposing parties become matter parties at intake, avoiding duplicate entry later."
+  },
+  "matter.number": {
+    "zh": "案件编号",
+    "en": "Matter number"
+  },
+  "matter.numberHint": {
+    "zh": "例如：WS-2026-001",
+    "en": "e.g. WS-2026-001"
+  },
+  "matter.type": {
+    "zh": "业务类型",
+    "en": "Matter type"
+  },
+  "matter.title": {
+    "zh": "案件名称",
+    "en": "Matter title"
+  },
+  "matter.titleHint": {
+    "zh": "使用客户和事项都能快速识别的名称",
+    "en": "Use a title that identifies both the client and engagement"
+  },
+  "matter.primaryClient": {
+    "zh": "主要客户",
+    "en": "Primary client"
+  },
+  "matter.selectClient": {
+    "zh": "请选择已登记客户",
+    "en": "Select a registered client"
+  },
+  "matter.primaryClientHint": {
+    "zh": "没有找到客户？请先到“客户与主体”完成登记。",
+    "en": "Cannot find the client? Register it in Clients and Parties first."
+  },
+  "matter.opposingParties": {
+    "zh": "相对方与其他涉及主体",
+    "en": "Opposing and other involved parties"
+  },
+  "matter.opposingHint": {
+    "zh": "点击选择，可多选；这些主体将参与冲突检索与案件证据链。",
+    "en": "Select one or more. These parties support conflict checks and the matter evidence chain."
+  },
+  "matter.noOpposingCandidates": {
+    "zh": "暂无其他主体，请先在客户与主体中登记。",
+    "en": "No other party is available. Register one in Clients and Parties first."
+  },
+  "matter.language": {
+    "zh": "工作语言",
+    "en": "Working language"
+  },
+  "matter.country": {
+    "zh": "国家代码",
+    "en": "Country code"
+  },
+  "matter.currency": {
+    "zh": "结算币种",
+    "en": "Billing currency"
+  },
+  "matter.createAndReview": {
+    "zh": "创建并进入冲突审查",
+    "en": "Create and start conflict review"
+  },
+  "matter.loadFailed": {
+    "zh": "案件组合加载失败",
+    "en": "Failed to load matter portfolio"
+  },
+  "matter.requiredFields": {
+    "zh": "请填写案件编号、名称并选择主要客户",
+    "en": "Matter number, title and primary client are required"
+  },
+  "matter.clientRequired": {
+    "zh": "请选择有效的主要客户",
+    "en": "Select a valid primary client"
+  },
+  "matter.created": {
+    "zh": "案件已创建并进入冲突审查",
+    "en": "Matter created and sent to conflict review"
+  },
+  "matter.createFailed": {
+    "zh": "案件立项失败",
+    "en": "Matter intake failed"
   }
 } as const

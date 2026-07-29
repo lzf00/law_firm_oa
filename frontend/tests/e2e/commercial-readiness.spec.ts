@@ -41,6 +41,7 @@ test('all commercial routes are bilingual, responsive and accessible', async ({ 
 
   for (const route of routes) {
     await page.goto(route)
+    await page.waitForLoadState('networkidle')
     await expect(page.locator('main#main-content')).toBeVisible()
     await expect(page.locator('h2').first()).toBeVisible()
     const geometry = await page.evaluate(() => ({

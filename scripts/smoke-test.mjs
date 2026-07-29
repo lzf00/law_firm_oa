@@ -227,6 +227,8 @@ await check('主体建档与客户转化', async () => {
     }),
   })
   assert(createdClient.partyId === createdParty.id, '客户未关联新主体')
+  assert(createdParty.notes?.includes('自动化冒烟测试'), '主体列表未返回备注，编辑会有清空风险')
+  assert(createdClient.source === 'SMOKE_TEST', '客户列表未返回客户来源')
   const updatedParty = await api(`/parties/${createdParty.id}`, {
     method: 'PUT',
     body: JSON.stringify({
@@ -237,6 +239,7 @@ await check('主体建档与客户转化', async () => {
     }),
   })
   assert(updatedParty.displayName.includes('更新'), '主体编辑未生效')
+  assert(updatedParty.notes?.includes('别名替换'), '主体编辑后备注未保留')
   const updatedClient = await api(`/clients/${createdClient.id}`, {
     method: 'PUT',
     body: JSON.stringify({
@@ -247,6 +250,57 @@ await check('主体建档与客户转化', async () => {
     }),
   })
   assert(updatedClient.id === createdClient.id, '客户编辑未保持原记录')
+  assert(updatedClient.source === 'SMOKE_TEST_UPDATED', '客户来源编辑未生效')
+})
+
+await check('主体、客户与案件立项权限边界', async () => {
+  const [adminMe, lawyerMe, assistantMe] = await Promise.all([
+    api('/me'),
+    api('/me', {}, 'zhanglawyer'),
+    api('/me', {}, 'liassistant'),
+  ])
+  const businessPermissions = [
+    'PARTY_CREATE', 'PARTY_MANAGE', 'CLIENT_CREATE',
+    'CLIENT_MANAGE', 'MATTER_CREATE', 'MATTER_MANAGE',
+  ]
+  assert(businessPermissions.every((code) => adminMe.permissions.includes(code)), '管理员缺少业务准入管理权限')
+  assert(
+    ['PARTY_CREATE', 'CLIENT_CREATE', 'MATTER_CREATE'].every((code) => lawyerMe.permissions.includes(code)),
+    '律师缺少主体、客户或案件创建权限',
+  )
+  assert(
+    assistantMe.permissions.includes('PARTY_CREATE')
+      && !assistantMe.permissions.includes('CLIENT_CREATE')
+      && !assistantMe.permissions.includes('MATTER_CREATE'),
+    '律师助理的业务准入权限不符合最小权限原则',
+  )
+  await expectApiError(`/parties/${createdParty.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      partyType: 'ORGANIZATION',
+      displayName: `越权编辑-${nonce}`,
+      aliases: [],
+      notes: 'SHOULD_NOT_WRITE',
+    }),
+  }, 'liassistant', 403, 'PERMISSION_DENIED')
+  await expectApiError('/clients', {
+    method: 'POST',
+    body: JSON.stringify({
+      partyId: createdParty.id,
+      clientNumber: `DENIED-${nonce}`,
+    }),
+  }, 'liassistant', 403, 'PERMISSION_DENIED')
+  await expectApiError('/matters', {
+    method: 'POST',
+    body: JSON.stringify({
+      matterNumber: `DENIED-${nonce}`,
+      title: `越权立项-${nonce}`,
+      matterType: 'ADVISORY',
+      responsibleUserId: lawyerId,
+      clientIds: [createdClient.id],
+      parties: [],
+    }),
+  }, 'liassistant', 403, 'PERMISSION_DENIED')
 })
 
 await check('利益冲突检索', async () => {
@@ -261,6 +315,17 @@ await check('利益冲突检索', async () => {
 })
 
 await check('案件立案与承办成员', async () => {
+  await expectApiError('/matters', {
+    method: 'POST',
+    body: JSON.stringify({
+      matterNumber: `INVALID-CLIENT-${nonce}`,
+      title: `无效客户立项-${nonce}`,
+      matterType: 'ADVISORY',
+      responsibleUserId: adminId,
+      clientIds: ['ffffffff-ffff-ffff-ffff-ffffffffffff'],
+      parties: [],
+    }),
+  }, 'admin', 400, 'CLIENT_INVALID')
   createdMatter = await api('/matters', {
     method: 'POST',
     body: JSON.stringify({
@@ -1613,8 +1678,12 @@ await check('P1 管理控制台、任务审批权限、集成健康与组织同�
   assert(users.total >= 3 && roles.some((role) => role.code === 'ADMIN'), '用户角色控制台数据缺失')
   const permissionCodes = new Set(permissions.map((permission) => permission.code))
   assert(
-    ['TASK_CREATE', 'TASK_MANAGE', 'WORKFLOW_APPROVE'].every((code) => permissionCodes.has(code)),
-    '管理员权限矩阵缺少任务或审批权限',
+    [
+      'TASK_CREATE', 'TASK_MANAGE', 'WORKFLOW_APPROVE',
+      'PARTY_CREATE', 'PARTY_MANAGE', 'CLIENT_CREATE',
+      'CLIENT_MANAGE', 'MATTER_CREATE', 'MATTER_MANAGE',
+    ].every((code) => permissionCodes.has(code)),
+    '管理员权限矩阵缺少任务、审批或业务准入权限',
   )
   assert(
     roles.some((role) => role.code === 'LAWYER' && role.permissions.includes('TASK_CREATE')),

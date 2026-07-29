@@ -1,6 +1,7 @@
 package com.zoro.legaloa.party;
 
 import com.zoro.legaloa.common.AuditService;
+import com.zoro.legaloa.common.AuthorizationService;
 import com.zoro.legaloa.common.BusinessException;
 import com.zoro.legaloa.identity.RequestActor;
 import com.zoro.legaloa.identity.RequestActorProvider;
@@ -18,15 +19,18 @@ public class ClientService {
     private final JdbcClient jdbcClient;
     private final RequestActorProvider actorProvider;
     private final AuditService auditService;
+    private final AuthorizationService authorizationService;
 
     public ClientService(
             JdbcClient jdbcClient,
             RequestActorProvider actorProvider,
-            AuditService auditService
+            AuditService auditService,
+            AuthorizationService authorizationService
     ) {
         this.jdbcClient = jdbcClient;
         this.actorProvider = actorProvider;
         this.auditService = auditService;
+        this.authorizationService = authorizationService;
     }
 
     @Transactional(readOnly = true)
@@ -34,7 +38,7 @@ public class ClientService {
         RequestActor actor = actorProvider.current();
         return jdbcClient.sql("""
                         SELECT c.id, c.party_id, c.client_number, p.display_name, p.party_type,
-                               c.owner_user_id, u.display_name AS owner_name, c.status
+                               c.owner_user_id, u.display_name AS owner_name, c.status, c.source
                         FROM clients c
                         JOIN parties p ON p.id = c.party_id
                         LEFT JOIN users u ON u.id = c.owner_user_id
@@ -50,6 +54,7 @@ public class ClientService {
     @Transactional
     public ClientView create(CreateClientRequest request) {
         RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "CLIENT_CREATE");
         UUID id = jdbcClient.sql("""
                         INSERT INTO clients (party_id, client_number, owner_user_id, source)
                         SELECT p.id, :clientNumber, :ownerUserId, :source
@@ -82,6 +87,7 @@ public class ClientService {
     @Transactional
     public ClientView update(UUID id, CreateClientRequest request) {
         RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "CLIENT_MANAGE");
         int updated = jdbcClient.sql("""
                         UPDATE clients c
                         SET party_id = :partyId,
@@ -135,7 +141,8 @@ public class ClientService {
                 rs.getString("party_type"),
                 rs.getObject("owner_user_id", UUID.class),
                 rs.getString("owner_name"),
-                rs.getString("status")
+                rs.getString("status"),
+                rs.getString("source")
         );
     }
 }

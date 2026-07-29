@@ -21,6 +21,7 @@ final class ApiMessageCatalog {
             Map.entry("OFFICE_MANAGE_DENIED", "You cannot manage the selected office"),
             Map.entry("USER_OFFICE_MISMATCH", "The selected user is not assigned to this office"),
             Map.entry("PARTY_INVALID", "The party does not exist or is outside this organization"),
+            Map.entry("CLIENT_INVALID", "The client does not exist or is outside this organization"),
             Map.entry("DOCUMENT_CONTEXT_INVALID", "Select exactly one matter or contract context"),
             Map.entry("DOCUMENT_ACCESS_DENIED", "You do not have access to this document"),
             Map.entry("DOCUMENT_DOWNLOAD_RATE_LIMITED", "Too many downloads in a short period; retry later"),

@@ -1,6 +1,7 @@
 package com.zoro.legaloa.party;
 
 import com.zoro.legaloa.common.AuditService;
+import com.zoro.legaloa.common.AuthorizationService;
 import com.zoro.legaloa.identity.RequestActor;
 import com.zoro.legaloa.identity.RequestActorProvider;
 import com.zoro.legaloa.party.PartyController.CreatePartyRequest;
@@ -18,15 +19,18 @@ public class PartyService {
     private final JdbcClient jdbcClient;
     private final RequestActorProvider actorProvider;
     private final AuditService auditService;
+    private final AuthorizationService authorizationService;
 
     public PartyService(
             JdbcClient jdbcClient,
             RequestActorProvider actorProvider,
-            AuditService auditService
+            AuditService auditService,
+            AuthorizationService authorizationService
     ) {
         this.jdbcClient = jdbcClient;
         this.actorProvider = actorProvider;
         this.auditService = auditService;
+        this.authorizationService = authorizationService;
     }
 
     @Transactional(readOnly = true)
@@ -35,7 +39,7 @@ public class PartyService {
         String normalized = "%" + normalize(query) + "%";
         return jdbcClient.sql("""
                         SELECT p.id, p.party_type, p.display_name, p.unified_social_credit_code,
-                               p.risk_level,
+                               p.risk_level, p.notes,
                                COALESCE(array_agg(pa.alias_name) FILTER (WHERE pa.id IS NOT NULL), '{}') AS aliases
                         FROM parties p
                         LEFT JOIN party_aliases pa ON pa.party_id = p.id
@@ -59,7 +63,8 @@ public class PartyService {
                         rs.getString("display_name"),
                         rs.getString("unified_social_credit_code"),
                         rs.getString("risk_level"),
-                        List.of((String[]) rs.getArray("aliases").getArray())
+                        List.of((String[]) rs.getArray("aliases").getArray()),
+                        rs.getString("notes")
                 ))
                 .list();
     }
@@ -67,6 +72,7 @@ public class PartyService {
     @Transactional
     public PartySummary create(CreatePartyRequest request) {
         RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "PARTY_CREATE");
         UUID id = jdbcClient.sql("""
                         INSERT INTO parties
                             (organization_id, party_type, normalized_name, display_name,
@@ -108,13 +114,15 @@ public class PartyService {
                 request.displayName().trim(),
                 blankToNull(request.unifiedSocialCreditCode()),
                 "NORMAL",
-                aliases
+                aliases,
+                blankToNull(request.notes())
         );
     }
 
     @Transactional
     public PartySummary update(UUID id, CreatePartyRequest request) {
         RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "PARTY_MANAGE");
         int updated = jdbcClient.sql("""
                         UPDATE parties
                         SET party_type = :partyType,

@@ -1,6 +1,7 @@
 package com.zoro.legaloa.matter;
 
 import com.zoro.legaloa.common.AuditService;
+import com.zoro.legaloa.common.AuthorizationService;
 import com.zoro.legaloa.common.BusinessException;
 import com.zoro.legaloa.identity.RequestActor;
 import com.zoro.legaloa.identity.RequestActorProvider;
@@ -27,22 +28,26 @@ public class MatterService {
     private final RequestActorProvider actorProvider;
     private final AuditService auditService;
     private final OfficeAccessService officeAccessService;
+    private final AuthorizationService authorizationService;
 
     public MatterService(
             JdbcClient jdbcClient,
             RequestActorProvider actorProvider,
             AuditService auditService,
-            OfficeAccessService officeAccessService
+            OfficeAccessService officeAccessService,
+            AuthorizationService authorizationService
     ) {
         this.jdbcClient = jdbcClient;
         this.actorProvider = actorProvider;
         this.auditService = auditService;
         this.officeAccessService = officeAccessService;
+        this.authorizationService = authorizationService;
     }
 
     @Transactional(readOnly = true)
     public List<MatterSummary> list(String status, String query) {
         RequestActor actor = actorProvider.current();
+        boolean viewAll = authorizationService.hasPermission(actor, "MATTER_MANAGE");
         return jdbcClient.sql("""
                         SELECT m.id, m.matter_number, m.title, m.matter_type, m.status,
                                m.confidentiality_level, m.responsible_user_id,
@@ -66,17 +71,13 @@ public class MatterService {
                             OR COALESCE(m.case_number, '') ILIKE :query
                           )
                           AND (
+                            :viewAll
+                            OR
                             EXISTS (
                               SELECT 1 FROM matter_members visible_mm
                               WHERE visible_mm.matter_id = m.id
                                 AND visible_mm.user_id = :userId
                                 AND visible_mm.left_at IS NULL
-                            )
-                            OR EXISTS (
-                              SELECT 1 FROM user_roles ur
-                              JOIN roles r ON r.id = ur.role_id
-                              WHERE ur.user_id = :userId
-                                AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
                             )
                           )
                         GROUP BY m.id, u.display_name, o.id
@@ -85,6 +86,7 @@ public class MatterService {
                         """)
                 .param("organizationId", actor.organizationId())
                 .param("userId", actor.userId())
+                .param("viewAll", viewAll)
                 .param("allStatuses", status == null || status.isBlank())
                 .param("status", status == null ? "" : status)
                 .param("noQuery", query == null || query.isBlank())
@@ -96,6 +98,7 @@ public class MatterService {
     @Transactional(readOnly = true)
     public MatterDetail get(UUID id) {
         RequestActor actor = actorProvider.current();
+        boolean viewAll = authorizationService.hasPermission(actor, "MATTER_MANAGE");
         Map<String, Object> row = jdbcClient.sql("""
                         SELECT m.id, m.matter_number, m.title, m.matter_type, m.status,
                                m.confidentiality_level, m.responsible_user_id,
@@ -112,23 +115,20 @@ public class MatterService {
                         WHERE m.id = :id AND m.organization_id = :organizationId
                           AND m.deleted_at IS NULL
                           AND (
+                            :viewAll
+                            OR
                             EXISTS (
                               SELECT 1 FROM matter_members visible_mm
                               WHERE visible_mm.matter_id = m.id
                                 AND visible_mm.user_id = :userId
                                 AND visible_mm.left_at IS NULL
                             )
-                            OR EXISTS (
-                              SELECT 1 FROM user_roles ur
-                              JOIN roles r ON r.id = ur.role_id
-                              WHERE ur.user_id = :userId
-                                AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
-                            )
                           )
                         """)
                 .param("id", id)
                 .param("organizationId", actor.organizationId())
                 .param("userId", actor.userId())
+                .param("viewAll", viewAll)
                 .query()
                 .listOfRows()
                 .stream()
@@ -183,6 +183,7 @@ public class MatterService {
     @Transactional
     public MatterDetail create(CreateMatterRequest request) {
         RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "MATTER_CREATE");
         UUID accessibleOfficeId = officeAccessService.resolveAccessibleOffice(
                 actor, request.officeId()
         );
@@ -288,18 +289,28 @@ public class MatterService {
                     .update();
         }
 
-        for (UUID clientId : request.clientIds() == null ? List.<UUID>of() : request.clientIds()) {
-            jdbcClient.sql("""
-                            INSERT INTO matter_clients (matter_id, client_id)
-                            SELECT :matterId, c.id FROM clients c
+        List<UUID> clientIds = request.clientIds() == null
+                ? List.of()
+                : request.clientIds().stream().distinct().toList();
+        for (int index = 0; index < clientIds.size(); index++) {
+            UUID clientId = clientIds.get(index);
+            int inserted = jdbcClient.sql("""
+                            INSERT INTO matter_clients (matter_id, client_id, is_primary)
+                            SELECT :matterId, c.id, :isPrimary FROM clients c
                             JOIN parties p ON p.id = c.party_id
                             WHERE c.id = :clientId AND p.organization_id = :organizationId
-                            ON CONFLICT DO NOTHING
+                              AND c.deleted_at IS NULL AND p.deleted_at IS NULL
                             """)
                     .param("matterId", matterId)
                     .param("clientId", clientId)
+                    .param("isPrimary", index == 0)
                     .param("organizationId", actor.organizationId())
                     .update();
+            if (inserted == 0) {
+                throw new BusinessException(
+                        "CLIENT_INVALID", "案件客户不存在或不属于当前组织", HttpStatus.BAD_REQUEST
+                );
+            }
         }
 
         for (MatterPartyInput party : request.parties() == null ? List.<MatterPartyInput>of() : request.parties()) {
@@ -468,6 +479,9 @@ public class MatterService {
     }
 
     private void requireWriteAccess(RequestActor actor, UUID matterId) {
+        if (authorizationService.hasPermission(actor, "MATTER_MANAGE")) {
+            return;
+        }
         Boolean allowed = jdbcClient.sql("""
                         SELECT EXISTS (
                           SELECT 1 FROM matters m
@@ -480,13 +494,6 @@ public class MatterService {
                                 WHERE mm.matter_id = m.id
                                   AND mm.user_id = :userId AND mm.left_at IS NULL
                                   AND mm.member_role IN ('RESPONSIBLE', 'LEAD')
-                              )
-                              OR EXISTS (
-                                SELECT 1 FROM user_roles ur
-                                JOIN roles r ON r.id = ur.role_id
-                                WHERE ur.user_id = :userId
-                                  AND r.organization_id = :organizationId
-                                  AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
                               )
                             )
                         )
