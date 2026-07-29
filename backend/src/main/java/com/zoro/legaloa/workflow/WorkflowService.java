@@ -85,6 +85,7 @@ public class WorkflowService {
             return idempotencyService.deserialize(replay.get(), WorkflowInstanceView.class);
         }
         requireBusinessAccess(actor, businessType, request.businessId());
+        requireSubmissionReadiness(actor, businessType, request.businessId());
         existingRunning(actor, businessType, request.businessId()).ifPresent(existing -> {
             throw new BusinessException(
                     "WORKFLOW_ALREADY_RUNNING",
@@ -767,6 +768,29 @@ public class WorkflowService {
                     .update();
         }
         transitionBusiness(link, businessStatus, actor, reason);
+        if ("COMPLETED".equals(workflowStatus) && "CONTRACT".equals(link.businessType())) {
+            markContractVersionReviewed(link);
+        }
+    }
+
+    private void markContractVersionReviewed(WorkflowLink link) {
+        jdbcClient.sql("""
+                        UPDATE contract_versions
+                        SET status = 'REVIEWED', updated_at = now()
+                        WHERE id = (
+                            SELECT cv.id
+                            FROM contract_versions cv
+                            JOIN document_versions dv
+                              ON dv.id = cv.primary_document_version_id
+                            WHERE cv.contract_id = :contractId
+                              AND cv.status = 'DRAFT'
+                              AND dv.ingestion_status = 'AVAILABLE'
+                            ORDER BY cv.version_number DESC
+                            LIMIT 1
+                        )
+                        """)
+                .param("contractId", link.businessId())
+                .update();
     }
 
     private void completeTaskReadModel(
@@ -1003,6 +1027,42 @@ public class WorkflowService {
                     "WORKFLOW_BUSINESS_NOT_FOUND",
                     "审批业务记录不存在或你无权发起",
                     HttpStatus.NOT_FOUND
+            );
+        }
+    }
+
+    private void requireSubmissionReadiness(
+            RequestActor actor,
+            String businessType,
+            UUID businessId
+    ) {
+        if (!"CONTRACT".equals(businessType)) {
+            return;
+        }
+        Boolean ready = jdbcClient.sql("""
+                        SELECT EXISTS (
+                            SELECT 1
+                            FROM contracts c
+                            JOIN contract_versions cv ON cv.contract_id = c.id
+                            JOIN document_versions dv
+                              ON dv.id = cv.primary_document_version_id
+                            WHERE c.id = :contractId
+                              AND c.organization_id = :organizationId
+                              AND c.status IN ('DRAFT', 'REJECTED')
+                              AND c.deleted_at IS NULL
+                              AND cv.status IN ('DRAFT', 'REVIEWED')
+                              AND dv.ingestion_status = 'AVAILABLE'
+                        )
+                        """)
+                .param("contractId", businessId)
+                .param("organizationId", actor.organizationId())
+                .query(Boolean.class)
+                .single();
+        if (!Boolean.TRUE.equals(ready)) {
+            throw new BusinessException(
+                    "CONTRACT_REVIEW_VERSION_REQUIRED",
+                    "发起合同审批前必须上传并登记一个已通过安全扫描的送审版本",
+                    HttpStatus.CONFLICT
             );
         }
     }

@@ -14,6 +14,8 @@ import com.zoro.legaloa.finance.FinanceController.TimeEntryRequest;
 import com.zoro.legaloa.identity.OrganizationSyncController.DepartmentSnapshot;
 import com.zoro.legaloa.identity.OrganizationSyncController.OrganizationSyncRequest;
 import com.zoro.legaloa.matter.ContractController.CreateContractRequest;
+import com.zoro.legaloa.matter.ContractController.CreateContractVersionRequest;
+import com.zoro.legaloa.matter.ContractController.ArchiveSignedFileRequest;
 import com.zoro.legaloa.matter.DeadlineController.CreateDeadlineRequest;
 import com.zoro.legaloa.matter.MatterController.CreateMatterRequest;
 import com.zoro.legaloa.matter.MatterController.MatterLifecycleRequest;
@@ -30,6 +32,7 @@ import com.zoro.legaloa.office.WorkTaskController.CreateWorkTaskRequest;
 import com.zoro.legaloa.party.ClientController.CreateClientRequest;
 import com.zoro.legaloa.party.PartyController.CreatePartyRequest;
 import com.zoro.legaloa.party.PartyController.PartyType;
+import com.zoro.legaloa.party.ConflictCheckController.ConflictDecisionRequest;
 import com.zoro.legaloa.seal.SealController.CreateSealRequest;
 import com.zoro.legaloa.workflow.WorkflowController.CompleteTaskRequest;
 import com.zoro.legaloa.workflow.WorkflowController.StartWorkflowRequest;
@@ -99,6 +102,15 @@ class RequestValidationTest {
                 "C-001", "Contract", null, null, null,
                 null, null, "CNY", List.of()
         ), "responsibleUserId");
+        assertInvalid(new CreateContractVersionRequest(null, "Review copy"), "documentVersionId");
+        assertInvalid(new CreateContractVersionRequest(ID, " "), "summary");
+        assertInvalid(new ArchiveSignedFileRequest(null, "Signed"), "signedDocumentVersionId");
+        assertInvalid(new ConflictDecisionRequest(
+                "ALLOW", "LOW", " ", null
+        ), "decision");
+        assertInvalid(new ConflictDecisionRequest(
+                "CLEAR", "LOW", "Rationale", null
+        ), "riskLevel");
         assertInvalid(new CreateDeadlineRequest(
                 ID, "Deadline", Instant.now().minusSeconds(1),
                 "COURT", ID, "HIGH", List.of(7, 3, 1)

@@ -5,6 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
@@ -20,14 +21,24 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/contracts")
 public class ContractController {
     private final ContractService contractService;
+    private final ContractLifecycleService lifecycleService;
 
-    public ContractController(ContractService contractService) {
+    public ContractController(
+            ContractService contractService,
+            ContractLifecycleService lifecycleService
+    ) {
         this.contractService = contractService;
+        this.lifecycleService = lifecycleService;
     }
 
     @GetMapping
     List<ContractView> list() {
         return contractService.list();
+    }
+
+    @GetMapping("/{id}")
+    ContractDetailView detail(@PathVariable UUID id) {
+        return lifecycleService.detail(id);
     }
 
     @PostMapping
@@ -41,6 +52,32 @@ public class ContractController {
             @Valid @RequestBody CreateContractRequest request
     ) {
         return contractService.update(id, request);
+    }
+
+    @PostMapping("/{id}/versions")
+    ContractDetailView createVersion(
+            @PathVariable UUID id,
+            @Valid @RequestBody CreateContractVersionRequest request
+    ) {
+        return lifecycleService.createVersion(id, request);
+    }
+
+    @PostMapping("/{id}/versions/{versionId}/finalize")
+    ContractDetailView finalizeVersion(
+            @PathVariable UUID id,
+            @PathVariable UUID versionId,
+            @Valid @RequestBody ContractLifecycleComment request
+    ) {
+        return lifecycleService.finalizeVersion(id, versionId, request);
+    }
+
+    @PostMapping("/{id}/versions/{versionId}/signed-file")
+    ContractDetailView archiveSignedFile(
+            @PathVariable UUID id,
+            @PathVariable UUID versionId,
+            @Valid @RequestBody ArchiveSignedFileRequest request
+    ) {
+        return lifecycleService.archiveSignedFile(id, versionId, request);
     }
 
     public record CreateContractRequest(
@@ -69,6 +106,66 @@ public class ContractController {
             BigDecimal amount,
             String currency,
             int matterCount,
-            List<UUID> matterIds
+            List<UUID> matterIds,
+            Integer currentVersionNumber,
+            String currentVersionStatus,
+            String signatureStatus,
+            Instant signedAt
+    ) {}
+
+    public record CreateContractVersionRequest(
+            @NotNull UUID documentVersionId,
+            @NotBlank @Size(max = 500) String summary
+    ) {}
+
+    public record ContractLifecycleComment(@Size(max = 1000) String comment) {}
+
+    public record ArchiveSignedFileRequest(
+            @NotNull UUID signedDocumentVersionId,
+            @Size(max = 1000) String comment
+    ) {}
+
+    public record ContractVersionView(
+            UUID id,
+            int versionNumber,
+            String status,
+            String summary,
+            UUID primaryDocumentId,
+            UUID primaryDocumentVersionId,
+            String primaryFilename,
+            String primarySha256,
+            UUID signedDocumentId,
+            UUID signedDocumentVersionId,
+            String signedFilename,
+            String signedSha256,
+            String signatureStatus,
+            UUID createdBy,
+            String createdByName,
+            Instant createdAt,
+            UUID finalizedBy,
+            String finalizedByName,
+            Instant finalizedAt,
+            UUID signedBy,
+            String signedByName,
+            Instant signedAt
+    ) {}
+
+    public record ContractLifecycleEventView(
+            UUID id,
+            String action,
+            UUID actorUserId,
+            String actorName,
+            String fromContractStatus,
+            String toContractStatus,
+            UUID contractVersionId,
+            UUID documentVersionId,
+            String comment,
+            Instant occurredAt
+    ) {}
+
+    public record ContractDetailView(
+            ContractView contract,
+            List<ContractVersionView> versions,
+            List<ContractLifecycleEventView> lifecycle
     ) {}
 }

@@ -38,12 +38,24 @@ public class DocumentAccessService {
             allowed = jdbcClient.sql("""
                             SELECT EXISTS (
                                 SELECT 1 FROM contracts c
-                                JOIN contract_members cm ON cm.contract_id = c.id
                                 WHERE c.id = :contractId
                                   AND c.organization_id = :organizationId
                                   AND c.deleted_at IS NULL
-                                  AND cm.user_id = :userId
-                                  AND cm.member_role IN ('RESPONSIBLE', 'LEAD', 'COUNSEL')
+                                  AND (
+                                    EXISTS (
+                                      SELECT 1 FROM contract_members cm
+                                      WHERE cm.contract_id = c.id
+                                        AND cm.user_id = :userId
+                                        AND cm.member_role IN ('RESPONSIBLE', 'LEAD', 'COUNSEL')
+                                    )
+                                    OR EXISTS (
+                                      SELECT 1 FROM user_roles ur
+                                      JOIN role_permissions rp ON rp.role_id = ur.role_id
+                                      JOIN permissions p ON p.id = rp.permission_id
+                                      WHERE ur.user_id = :userId
+                                        AND p.code = 'CONTRACT_SIGN_ARCHIVE'
+                                    )
+                                  )
                             )
                             """)
                     .param("contractId", contractId)
@@ -79,11 +91,24 @@ public class DocumentAccessService {
             allowed = jdbcClient.sql("""
                             SELECT EXISTS (
                                 SELECT 1 FROM contracts c
-                                JOIN contract_members cm ON cm.contract_id = c.id
                                 WHERE c.id = :contractId
                                   AND c.organization_id = :organizationId
                                   AND c.deleted_at IS NULL
-                                  AND cm.user_id = :userId
+                                  AND (
+                                    EXISTS (
+                                      SELECT 1 FROM contract_members cm
+                                      WHERE cm.contract_id = c.id AND cm.user_id = :userId
+                                    )
+                                    OR EXISTS (
+                                      SELECT 1 FROM user_roles ur
+                                      JOIN role_permissions rp ON rp.role_id = ur.role_id
+                                      JOIN permissions p ON p.id = rp.permission_id
+                                      WHERE ur.user_id = :userId
+                                        AND p.code IN (
+                                          'CONTRACT_FINALIZE', 'CONTRACT_SIGN_ARCHIVE'
+                                        )
+                                    )
+                                  )
                             )
                             """)
                     .param("contractId", contractId)
@@ -117,11 +142,35 @@ public class DocumentAccessService {
                                   (:download = FALSE AND (
                                       mm.user_id IS NOT NULL OR cm.user_id IS NOT NULL
                                       OR dg.permission IN ('PREVIEW', 'DOWNLOAD', 'EDIT', 'SHARE')
+                                      OR (
+                                        d.contract_id IS NOT NULL
+                                        AND EXISTS (
+                                          SELECT 1 FROM user_roles ur
+                                          JOIN role_permissions rp ON rp.role_id = ur.role_id
+                                          JOIN permissions p ON p.id = rp.permission_id
+                                          WHERE ur.user_id = :userId
+                                            AND p.code IN (
+                                              'CONTRACT_FINALIZE', 'CONTRACT_SIGN_ARCHIVE'
+                                            )
+                                        )
+                                      )
                                   ))
                                   OR
                                   (:download = TRUE AND (
                                       mm.can_download = TRUE OR cm.can_download = TRUE
                                       OR dg.permission IN ('DOWNLOAD', 'EDIT', 'SHARE')
+                                      OR (
+                                        d.contract_id IS NOT NULL
+                                        AND EXISTS (
+                                          SELECT 1 FROM user_roles ur
+                                          JOIN role_permissions rp ON rp.role_id = ur.role_id
+                                          JOIN permissions p ON p.id = rp.permission_id
+                                          WHERE ur.user_id = :userId
+                                            AND p.code IN (
+                                              'CONTRACT_FINALIZE', 'CONTRACT_SIGN_ARCHIVE'
+                                            )
+                                        )
+                                      )
                                   ))
                               )
                         )

@@ -1,12 +1,15 @@
 package com.zoro.legaloa.matter;
 
 import com.zoro.legaloa.common.AuditService;
+import com.zoro.legaloa.common.AuthorizationService;
 import com.zoro.legaloa.common.BusinessException;
+import com.zoro.legaloa.identity.OfficeAccessService;
 import com.zoro.legaloa.identity.RequestActor;
 import com.zoro.legaloa.identity.RequestActorProvider;
 import com.zoro.legaloa.matter.ContractController.ContractView;
 import com.zoro.legaloa.matter.ContractController.CreateContractRequest;
 import java.util.List;
+import java.util.LinkedHashSet;
 import java.util.UUID;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -18,15 +21,21 @@ public class ContractService {
     private final JdbcClient jdbcClient;
     private final RequestActorProvider actorProvider;
     private final AuditService auditService;
+    private final AuthorizationService authorizationService;
+    private final OfficeAccessService officeAccessService;
 
     public ContractService(
             JdbcClient jdbcClient,
             RequestActorProvider actorProvider,
-            AuditService auditService
+            AuditService auditService,
+            AuthorizationService authorizationService,
+            OfficeAccessService officeAccessService
     ) {
         this.jdbcClient = jdbcClient;
         this.actorProvider = actorProvider;
         this.auditService = auditService;
+        this.authorizationService = authorizationService;
+        this.officeAccessService = officeAccessService;
     }
 
     @Transactional(readOnly = true)
@@ -39,12 +48,25 @@ public class ContractService {
                                c.effective_date, c.expiry_date, c.amount, c.currency,
                                COUNT(cm.matter_id) AS matter_count,
                                COALESCE(array_agg(cm.matter_id) FILTER (WHERE cm.matter_id IS NOT NULL), '{}')
-                                   AS matter_ids
+                                   AS matter_ids,
+                               current_version.version_number AS current_version_number,
+                               current_version.status AS current_version_status,
+                               current_version.signature_status,
+                               current_version.signed_at
                         FROM contracts c
                         JOIN users u ON u.id = c.responsible_user_id
                         LEFT JOIN clients cl ON cl.id = c.client_id
                         LEFT JOIN parties p ON p.id = cl.party_id
                         LEFT JOIN contract_matters cm ON cm.contract_id = c.id
+                        LEFT JOIN LATERAL (
+                            SELECT cv.version_number, cv.status, cv.signature_status, cv.signed_at
+                            FROM contract_versions cv
+                            WHERE cv.contract_id = c.id
+                            ORDER BY
+                                CASE cv.status WHEN 'FINAL' THEN 0 ELSE 1 END,
+                                cv.version_number DESC
+                            LIMIT 1
+                        ) current_version ON TRUE
                         WHERE c.organization_id = :organizationId AND c.deleted_at IS NULL
                           AND (
                             EXISTS (
@@ -58,8 +80,19 @@ public class ContractService {
                               WHERE ur.user_id = :userId
                                 AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
                             )
+                            OR EXISTS (
+                              SELECT 1 FROM user_roles ur
+                              JOIN role_permissions rp ON rp.role_id = ur.role_id
+                              JOIN permissions permission ON permission.id = rp.permission_id
+                              WHERE ur.user_id = :userId
+                                AND permission.code IN (
+                                  'CONTRACT_FINALIZE', 'CONTRACT_SIGN_ARCHIVE'
+                                )
+                            )
                           )
-                        GROUP BY c.id, p.display_name, u.display_name
+                        GROUP BY c.id, p.display_name, u.display_name,
+                                 current_version.version_number, current_version.status,
+                                 current_version.signature_status, current_version.signed_at
                         ORDER BY c.updated_at DESC
                         LIMIT 200
                         """)
@@ -79,7 +112,12 @@ public class ContractService {
                         rs.getBigDecimal("amount"),
                         rs.getString("currency"),
                         rs.getInt("matter_count"),
-                        List.of((UUID[]) rs.getArray("matter_ids").getArray())
+                        List.of((UUID[]) rs.getArray("matter_ids").getArray()),
+                        rs.getObject("current_version_number", Integer.class),
+                        rs.getString("current_version_status"),
+                        rs.getString("signature_status"),
+                        rs.getTimestamp("signed_at") == null
+                                ? null : rs.getTimestamp("signed_at").toInstant()
                 ))
                 .list();
     }
@@ -87,7 +125,9 @@ public class ContractService {
     @Transactional
     public ContractView create(CreateContractRequest request) {
         RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "CONTRACT_CREATE");
         validateDates(request);
+        List<UUID> matterIds = validateMatterAccess(actor, request.matterIds());
         UUID contractId = jdbcClient.sql("""
                         INSERT INTO contracts
                             (organization_id, contract_number, title, client_id,
@@ -141,7 +181,7 @@ public class ContractService {
                     .update();
         }
 
-        for (UUID matterId : request.matterIds() == null ? List.<UUID>of() : request.matterIds()) {
+        for (UUID matterId : matterIds) {
             jdbcClient.sql("""
                             INSERT INTO contract_matters (contract_id, matter_id)
                             SELECT :contractId, m.id FROM matters m
@@ -161,7 +201,44 @@ public class ContractService {
     @Transactional
     public ContractView update(UUID id, CreateContractRequest request) {
         RequestActor actor = actorProvider.current();
+        authorizationService.requirePermission(actor, "CONTRACT_MANAGE");
         validateDates(request);
+        String currentStatus = jdbcClient.sql("""
+                        SELECT c.status
+                        FROM contracts c
+                        WHERE c.id = :id AND c.organization_id = :organizationId
+                          AND c.deleted_at IS NULL
+                          AND (
+                            EXISTS (
+                              SELECT 1 FROM contract_members cm
+                              WHERE cm.contract_id = c.id AND cm.user_id = :actorId
+                            )
+                            OR EXISTS (
+                              SELECT 1 FROM user_roles ur
+                              JOIN roles r ON r.id = ur.role_id
+                              WHERE ur.user_id = :actorId
+                                AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
+                            )
+                          )
+                        """)
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .param("actorId", actor.userId())
+                .query(String.class)
+                .optional()
+                .orElseThrow(() -> new BusinessException(
+                        "CONTRACT_CONTEXT_INVALID",
+                        "合同不存在或当前用户无权编辑",
+                        HttpStatus.NOT_FOUND
+                ));
+        if (!ContractLifecyclePolicy.canEdit(currentStatus)) {
+            throw new BusinessException(
+                    "CONTRACT_EDIT_LOCKED",
+                    "合同进入审批后，商业字段不可直接修改",
+                    HttpStatus.CONFLICT
+            );
+        }
+        List<UUID> matterIds = validateMatterAccess(actor, request.matterIds());
         int updated = jdbcClient.sql("""
                         UPDATE contracts c
                         SET contract_number = :contractNumber,
@@ -175,9 +252,20 @@ public class ContractService {
                             updated_at = now()
                         WHERE c.id = :id AND c.organization_id = :organizationId
                           AND c.deleted_at IS NULL
+                          AND c.status IN ('DRAFT', 'REJECTED')
                           AND EXISTS (
-                              SELECT 1 FROM contract_members member
-                              WHERE member.contract_id = c.id AND member.user_id = :actorId
+                              SELECT 1
+                              WHERE EXISTS (
+                                  SELECT 1 FROM contract_members member
+                                  WHERE member.contract_id = c.id
+                                    AND member.user_id = :actorId
+                              )
+                              OR EXISTS (
+                                  SELECT 1 FROM user_roles ur
+                                  JOIN roles r ON r.id = ur.role_id
+                                  WHERE ur.user_id = :actorId
+                                    AND r.code IN ('ADMIN', 'MANAGING_PARTNER')
+                              )
                           )
                           AND EXISTS (
                               SELECT 1 FROM users u
@@ -215,17 +303,12 @@ public class ContractService {
         jdbcClient.sql("DELETE FROM contract_matters WHERE contract_id = :contractId")
                 .param("contractId", id)
                 .update();
-        for (UUID matterId : request.matterIds() == null ? List.<UUID>of() : request.matterIds()) {
+        for (UUID matterId : matterIds) {
             int linked = jdbcClient.sql("""
                             INSERT INTO contract_matters (contract_id, matter_id)
                             SELECT :contractId, m.id FROM matters m
                             WHERE m.id = :matterId AND m.organization_id = :organizationId
                               AND m.deleted_at IS NULL
-                              AND EXISTS (
-                                  SELECT 1 FROM matter_members mm
-                                  WHERE mm.matter_id = m.id AND mm.user_id = :actorId
-                                    AND mm.left_at IS NULL
-                              )
                             ON CONFLICT DO NOTHING
                             """)
                     .param("contractId", id)
@@ -260,5 +343,28 @@ public class ContractService {
                     "CONTRACT_DATES_INVALID", "合同到期日不得早于生效日", HttpStatus.BAD_REQUEST
             );
         }
+    }
+
+    private List<UUID> validateMatterAccess(RequestActor actor, List<UUID> supplied) {
+        LinkedHashSet<UUID> unique = new LinkedHashSet<>(
+                supplied == null ? List.of() : supplied
+        );
+        if (supplied != null && unique.size() != supplied.size()) {
+            throw invalidMatter();
+        }
+        for (UUID matterId : unique) {
+            if (!officeAccessService.canAccessBusiness(actor, "MATTER", matterId)) {
+                throw invalidMatter();
+            }
+        }
+        return List.copyOf(unique);
+    }
+
+    private static BusinessException invalidMatter() {
+        return new BusinessException(
+                "CONTRACT_MATTER_INVALID",
+                "关联案件不存在、重复或无权访问",
+                HttpStatus.BAD_REQUEST
+        );
     }
 }
