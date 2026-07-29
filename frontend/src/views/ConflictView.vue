@@ -596,7 +596,8 @@ onMounted(load)
 .conclusion-card dl { display:grid; grid-template-columns:84px 1fr; gap:8px 10px; margin:0; font-size:12px; }
 .conclusion-card dt { color:#506059; }.conclusion-card dd { margin:0; color:#2f433c; line-height:1.5; }
 .pending-state { display:flex; align-items:center; gap:9px; margin:12px 0; color:#4e5d56; }
-.empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-height:180px; color:#86908b; text-align:center; }
+.empty-state { display:flex; flex-direction:column; align-items:center; justify-content:center; gap:8px; min-height:180px; color:#66716c; text-align:center; }
+.empty-state strong { color:#46534d; }
 .evidence-empty { min-height:550px; }
 .review-form { display:grid; gap:12px; }.two-fields { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .spin { animation:spin 1s linear infinite; } @keyframes spin { to { transform:rotate(360deg); } }

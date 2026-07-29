@@ -23,9 +23,24 @@ public class DeadlineJob {
     @Transactional
     public void updateAndRemind() {
         jdbcClient.sql("""
-                        UPDATE deadlines
-                        SET status = 'OVERDUE', updated_at = now()
-                        WHERE status = 'OPEN' AND due_at < now()
+                        WITH transitioned AS (
+                            UPDATE deadlines
+                            SET status = 'OVERDUE',
+                                updated_at = now(),
+                                version = version + 1
+                            WHERE status = 'OPEN' AND due_at < now()
+                            RETURNING id, matter_id, due_at, owner_user_id
+                        )
+                        INSERT INTO deadline_lifecycle_events
+                            (organization_id, deadline_id, action, actor_display_name,
+                             from_status, to_status, previous_due_at, next_due_at,
+                             previous_owner_user_id, next_owner_user_id, note)
+                        SELECT m.organization_id, t.id, 'OVERDUE_MARKED', 'SYSTEM',
+                               'OPEN', 'OVERDUE', t.due_at, t.due_at,
+                               t.owner_user_id, t.owner_user_id,
+                               'Automatically marked overdue by deadline scheduler'
+                        FROM transitioned t
+                        JOIN matters m ON m.id = t.matter_id
                         """)
                 .update();
         List<ReminderCandidate> candidates = jdbcClient.sql("""

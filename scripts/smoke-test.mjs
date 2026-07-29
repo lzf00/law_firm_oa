@@ -80,6 +80,7 @@ const shanghaiOfficeId = '00000000-0000-0000-0012-000000000008'
 let createdParty
 let createdClient
 let createdMatter
+let createdContract
 let createdDocument
 let createdArchive
 let sealRequest
@@ -351,37 +352,112 @@ await check('案件检索、编辑、生命周期与写权限', async () => {
 })
 
 await check('案件期限创建', async () => {
-  const deadline = await api('/deadlines', {
+  const deadlinePayload = {
+    matterId: createdMatter.summary.id,
+    title: `验收期限-${nonce}`,
+    dueAt: new Date(Date.now() + 7 * 86400000).toISOString(),
+    deadlineType: 'INTERNAL',
+    ownerUserId: adminId,
+    priority: 'HIGH',
+    reminderDaysBefore: [7, 3, 1],
+    sourceType: 'INTERNAL',
+    sourceReference: 'Commercial acceptance suite',
+    calculationNote: 'Seven days from the acceptance run',
+  }
+  await expectApiError('/deadlines', {
     method: 'POST',
-    body: JSON.stringify({
-      matterId: createdMatter.summary.id,
-      title: `验收期限-${nonce}`,
-      dueAt: new Date(Date.now() + 7 * 86400000).toISOString(),
-      deadlineType: 'INTERNAL_TASK',
-      ownerUserId: adminId,
-      priority: 'HIGH',
-      reminderDaysBefore: [7, 3, 1],
-    }),
+    body: JSON.stringify(deadlinePayload),
+  }, 'liassistant', 403, 'DEADLINE_CREATE_DENIED')
+  await expectApiError('/deadlines', {
+    method: 'POST',
+    body: JSON.stringify({ ...deadlinePayload, ownerUserId: lawyerId }),
+  }, 'admin', 400, 'DEADLINE_OWNER_INVALID')
+  const createdDeadline = await api('/deadlines', {
+    method: 'POST',
+    body: JSON.stringify(deadlinePayload),
   })
+  const deadline = createdDeadline.deadline
   assert(deadline.matterId === createdMatter.summary.id, '期限未关联案件')
-  const updated = await api(`/deadlines/${deadline.id}`, {
+  assert(createdDeadline.events.some((item) => item.action === 'CREATED'), '期限创建事件缺失')
+  const updatedDeadline = await api(`/deadlines/${deadline.id}`, {
     method: 'PUT',
     body: JSON.stringify({
+      expectedVersion: deadline.version,
       matterId: createdMatter.summary.id,
       title: `验收期限更新-${nonce}`,
       dueAt: new Date(Date.now() + 8 * 86400000).toISOString(),
-      deadlineType: 'INTERNAL_TASK',
+      deadlineType: 'INTERNAL',
       ownerUserId: adminId,
       priority: 'URGENT',
       reminderDaysBefore: [5, 2, 1],
+      sourceType: 'INTERNAL',
+      sourceReference: 'Commercial acceptance suite',
+      calculationNote: 'Eight days from the acceptance run',
     }),
   })
+  const updated = updatedDeadline.deadline
   assert(updated.title.includes('更新'), '期限编辑未生效')
   assert(updated.reminderPolicy.includes('[5, 2, 1]') || updated.reminderPolicy.includes('[5,2,1]'), '提醒策略未保存')
+  assert(updatedDeadline.events.some((item) => item.action === 'UPDATED'), '期限更新事件缺失')
+  await expectApiError(`/deadlines/${deadline.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      expectedVersion: deadline.version,
+      ...deadlinePayload,
+      title: `过期版本更新-${nonce}`,
+    }),
+  }, 'admin', 409, 'DEADLINE_VERSION_CONFLICT')
+  await expectApiError(`/deadlines/${deadline.id}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({ expectedVersion: updated.version, note: ' ' }),
+  }, 'admin', 400, 'VALIDATION_FAILED')
+  const completed = await api(`/deadlines/${deadline.id}/complete`, {
+    method: 'POST',
+    body: JSON.stringify({
+      expectedVersion: updated.version,
+      note: '已提交并取得电子回执',
+    }),
+  })
+  assert(completed.deadline.status === 'COMPLETED', '期限完成状态未生效')
+  await expectApiError(`/deadlines/${deadline.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      expectedVersion: completed.deadline.version,
+      ...deadlinePayload,
+      title: `完成后编辑-${nonce}`,
+    }),
+  }, 'admin', 409, 'DEADLINE_EDIT_LOCKED')
+  await expectApiError(`/deadlines/${deadline.id}/reopen`, {
+    method: 'POST',
+    body: JSON.stringify({
+      expectedVersion: completed.deadline.version,
+      note: '越权复开',
+    }),
+  }, 'liassistant', 403, 'PERMISSION_DENIED')
+  const reopened = await api(`/deadlines/${deadline.id}/reopen`, {
+    method: 'POST',
+    body: JSON.stringify({
+      expectedVersion: completed.deadline.version,
+      note: '收到补充程序指令',
+    }),
+  })
+  assert(reopened.deadline.status === 'OPEN', '期限复开未恢复进行中状态')
+  const cancelled = await api(`/deadlines/${deadline.id}/cancel`, {
+    method: 'POST',
+    body: JSON.stringify({
+      expectedVersion: reopened.deadline.version,
+      note: '程序指令已撤销',
+    }),
+  })
+  assert(cancelled.deadline.status === 'CANCELLED', '期限取消状态未生效')
+  const actions = cancelled.events.map((item) => item.action)
+  for (const action of ['CREATED', 'UPDATED', 'COMPLETED', 'REOPENED', 'CANCELLED']) {
+    assert(actions.includes(action), `期限证据链缺少 ${action}`)
+  }
 })
 
 await check('合同创建、编辑与案件关联', async () => {
-  const created = await api('/contracts', {
+  createdContract = await api('/contracts', {
     method: 'POST',
     body: JSON.stringify({
       contractNumber: `TEST-CT-${nonce}`,
@@ -393,8 +469,8 @@ await check('合同创建、编辑与案件关联', async () => {
       matterIds: [createdMatter.summary.id],
     }),
   })
-  assert(created.matterIds.includes(createdMatter.summary.id), '合同未关联案件')
-  const updated = await api(`/contracts/${created.id}`, {
+  assert(createdContract.matterIds.includes(createdMatter.summary.id), '合同未关联案件')
+  const updated = await api(`/contracts/${createdContract.id}`, {
     method: 'PUT',
     body: JSON.stringify({
       contractNumber: `TEST-CT-${nonce}`,
@@ -920,23 +996,56 @@ await check('部门统计与组织通讯录', async () => {
 })
 
 await check('合同两级审批流程', async () => {
+  const reviewBytes = Buffer.from(`Contract review copy ${nonce}\n`, 'utf8')
+  const reviewSha256 = createHash('sha256').update(reviewBytes).digest('hex')
+  const reviewTicket = await api('/documents/uploads', {
+    method: 'POST',
+    body: JSON.stringify({
+      contractId: createdContract.id,
+      logicalName: `合同送审版本-${nonce}`,
+      documentType: 'CONTRACT',
+      originalFilename: `contract-review-${nonce}.txt`,
+      contentType: 'text/plain',
+      sizeBytes: reviewBytes.length,
+      sha256: reviewSha256,
+    }),
+  })
+  const reviewUpload = await fetch(reviewTicket.uploadUrl, {
+    method: 'PUT',
+    headers: { 'Content-Type': reviewTicket.requiredContentType },
+    body: reviewBytes,
+  })
+  assert(reviewUpload.ok, `合同送审版本直传失败：${reviewUpload.status}`)
+  const reviewDocument = await api(
+    `/documents/uploads/${reviewTicket.uploadId}/complete`,
+    { method: 'POST' },
+  )
+  assert(reviewDocument.ingestionStatus === 'AVAILABLE', '合同送审版本未通过安全扫描')
+  const contractDetail = await api(`/contracts/${createdContract.id}/versions`, {
+    method: 'POST',
+    body: JSON.stringify({
+      documentVersionId: reviewDocument.currentVersionId,
+      summary: '自动化验收送审版本',
+    }),
+  })
+  assert(contractDetail.versions.length === 1, '合同送审版本未登记')
   const idempotencyKey = `smoke-contract-${nonce}`
   contractWorkflow = await api('/workflows', {
     method: 'POST',
     headers: { 'Idempotency-Key': idempotencyKey },
-    body: JSON.stringify({ businessType: 'CONTRACT', businessId: seededContractId }),
+    body: JSON.stringify({ businessType: 'CONTRACT', businessId: createdContract.id }),
   })
   assert(contractWorkflow.status === 'RUNNING', '合同流程未启动')
   const replay = await api('/workflows', {
     method: 'POST',
     headers: { 'Idempotency-Key': idempotencyKey },
-    body: JSON.stringify({ businessType: 'CONTRACT', businessId: seededContractId }),
+    body: JSON.stringify({ businessType: 'CONTRACT', businessId: createdContract.id }),
   })
   assert(replay.processInstanceId === contractWorkflow.processInstanceId, '审批发起幂等重放失败')
   try {
     await api('/workflows', {
       method: 'POST',
-      body: JSON.stringify({ businessType: 'CONTRACT', businessId: seededContractId }),
+      body: JSON.stringify({ businessType: 'CONTRACT', businessId: createdContract.id }),
     })
     throw new Error('进行中的审批被重复启动')
   } catch (error) {
@@ -990,7 +1099,7 @@ await check('合同两级审批流程', async () => {
   assert(!remaining.some((item) => item.processInstanceId === contractWorkflow.processInstanceId), '合同流程未结束')
   const contracts = await api('/contracts')
   assert(
-    contracts.find((item) => item.id === seededContractId)?.status === 'APPROVED',
+    contracts.find((item) => item.id === createdContract.id)?.status === 'APPROVED',
     '合同审批通过后未回写 APPROVED',
   )
 })
@@ -1390,6 +1499,23 @@ await check('P1 委托、工时、账单、回款与财务报表闭环', async (
   })
   assert(approvedEngagement.status === 'APPROVED', '委托收费约定审批失败')
 
+  createdMatter = await api(`/matters/${createdMatter.summary.id}`, {
+    method: 'PUT',
+    body: JSON.stringify({
+      title: createdMatter.summary.title,
+      matterType: createdMatter.summary.matterType,
+      responsibleUserId: lawyerId,
+      openedAt: createdMatter.summary.openedAt,
+      courtName: createdMatter.courtName,
+      caseNumber: createdMatter.caseNumber,
+      description: createdMatter.description,
+      officeId: createdMatter.summary.officeId,
+      countryCode: createdMatter.summary.countryCode,
+      jurisdiction: createdMatter.summary.jurisdiction,
+      workingLanguage: createdMatter.summary.workingLanguage,
+      billingCurrency: createdMatter.summary.billingCurrency,
+    }),
+  })
   const timeEntry = await api('/finance/time-entries', {
     method: 'POST',
     body: JSON.stringify({
@@ -1399,9 +1525,9 @@ await check('P1 委托、工时、账单、回款与财务报表闭环', async (
       description: 'P1 commercial acceptance work',
       billable: true,
     }),
-  })
+  }, 'zhanglawyer')
   assert(Number(timeEntry.amount) === 1500, '工时费率快照计算错误')
-  await api(`/finance/time-entries/${timeEntry.id}/submit`, { method: 'POST' })
+  await api(`/finance/time-entries/${timeEntry.id}/submit`, { method: 'POST' }, 'zhanglawyer')
   const approvedTime = await api(`/finance/time-entries/${timeEntry.id}/approve`, {
     method: 'POST',
   })

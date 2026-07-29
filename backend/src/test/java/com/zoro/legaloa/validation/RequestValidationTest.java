@@ -113,7 +113,8 @@ class RequestValidationTest {
         ), "riskLevel");
         assertInvalid(new CreateDeadlineRequest(
                 ID, "Deadline", Instant.now().minusSeconds(1),
-                "COURT", ID, "HIGH", List.of(7, 3, 1)
+                "COURT", ID, "HIGH", List.of(7, 3, 1),
+                "COURT_ORDER", "Court order dated today", "Calculated from service"
         ), "dueAt");
     }
 
