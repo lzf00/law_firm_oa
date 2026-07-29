@@ -3,6 +3,7 @@ package com.zoro.legaloa.document;
 import com.zoro.legaloa.common.AuditService;
 import com.zoro.legaloa.common.BusinessException;
 import com.zoro.legaloa.document.DocumentController.DocumentView;
+import com.zoro.legaloa.document.DocumentController.DocumentVersionView;
 import com.zoro.legaloa.document.DocumentController.DownloadTicket;
 import com.zoro.legaloa.document.DocumentController.InitiateUploadRequest;
 import com.zoro.legaloa.document.DocumentController.UploadTicket;
@@ -92,6 +93,48 @@ public class DocumentService {
                 .list();
     }
 
+    @Transactional(readOnly = true)
+    public List<DocumentVersionView> versions(UUID documentId) {
+        RequestActor actor = actorProvider.current();
+        accessService.requireDocumentRead(actor, documentId, false);
+        return jdbcClient.sql("""
+                        SELECT dv.id, dv.version_number, dv.original_filename, dv.content_type,
+                               dv.detected_content_type, dv.size_bytes, dv.sha256,
+                               dv.version_status, dv.signature_status, dv.ingestion_status,
+                               dv.created_by, u.display_name AS created_by_name, dv.created_at,
+                               dv.scan_completed_at, d.current_version_id
+                        FROM document_versions dv
+                        JOIN documents d ON d.id = dv.document_id
+                        JOIN users u ON u.id = dv.created_by
+                        WHERE d.id = :documentId AND d.organization_id = :organizationId
+                          AND d.deleted_at IS NULL
+                        ORDER BY dv.version_number DESC
+                        """)
+                .param("documentId", documentId)
+                .param("organizationId", actor.organizationId())
+                .query((rs, rowNum) -> new DocumentVersionView(
+                        rs.getObject("id", UUID.class),
+                        rs.getInt("version_number"),
+                        rs.getString("original_filename"),
+                        rs.getString("content_type"),
+                        rs.getString("detected_content_type"),
+                        rs.getLong("size_bytes"),
+                        rs.getString("sha256"),
+                        rs.getString("version_status"),
+                        rs.getString("signature_status"),
+                        rs.getString("ingestion_status"),
+                        rs.getObject("id", UUID.class).equals(
+                                rs.getObject("current_version_id", UUID.class)
+                        ),
+                        rs.getObject("created_by", UUID.class),
+                        rs.getString("created_by_name"),
+                        rs.getTimestamp("created_at").toInstant(),
+                        rs.getTimestamp("scan_completed_at") == null
+                                ? null : rs.getTimestamp("scan_completed_at").toInstant()
+                ))
+                .list();
+    }
+
     @Transactional
     public UploadTicket initiate(InitiateUploadRequest request) {
         requireExactlyOneContext(request.matterId(), request.contractId());
@@ -101,7 +144,13 @@ public class DocumentService {
             );
         }
         RequestActor actor = actorProvider.current();
-        accessService.requireContextWrite(actor, request.matterId(), request.contractId());
+        if (request.documentId() == null) {
+            accessService.requireContextWrite(actor, request.matterId(), request.contractId());
+        } else {
+            accessService.requireDocumentEdit(
+                    actor, request.documentId(), request.matterId(), request.contractId()
+            );
+        }
         String normalizedFilename;
         try {
             normalizedFilename = FileInspectionPolicy.normalizeFilename(request.originalFilename());
@@ -111,9 +160,6 @@ public class DocumentService {
             );
         }
 
-        if (request.documentId() != null) {
-            accessService.requireDocumentRead(actor, request.documentId(), true);
-        }
         UUID uploadId = UUID.randomUUID();
         Instant expiresAt = Instant.now().plus(15, ChronoUnit.MINUTES);
         String extension = safeExtension(normalizedFilename);
@@ -157,7 +203,12 @@ public class DocumentService {
 
         UUID matterId = (UUID) upload.get("matter_id");
         UUID contractId = (UUID) upload.get("contract_id");
-        accessService.requireContextWrite(actor, matterId, contractId);
+        UUID targetDocumentId = (UUID) upload.get("document_id");
+        if (targetDocumentId == null) {
+            accessService.requireContextWrite(actor, matterId, contractId);
+        } else {
+            accessService.requireDocumentEdit(actor, targetDocumentId, matterId, contractId);
+        }
         String objectKey = (String) upload.get("object_key");
         ObjectStorageService.StoredObject stored = storageService.stat(objectKey);
         long expectedSize = ((Number) upload.get("expected_size")).longValue();
@@ -328,7 +379,7 @@ public class DocumentService {
                     .query(UUID.class)
                     .single();
         } else {
-            accessService.requireDocumentRead(actor, documentId, true);
+            accessService.requireDocumentEdit(actor, documentId, matterId, contractId);
             jdbcClient.sql("SELECT id FROM documents WHERE id = :id FOR UPDATE")
                     .param("id", documentId)
                     .query(UUID.class)

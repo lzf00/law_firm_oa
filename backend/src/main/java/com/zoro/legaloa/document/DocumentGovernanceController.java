@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -57,6 +58,14 @@ public class DocumentGovernanceController {
         return service.createTemplate(request);
     }
 
+    @PutMapping("/templates/{id}")
+    TemplateView updateTemplate(
+            @PathVariable UUID id,
+            @Valid @RequestBody TemplateUpdateRequest request
+    ) {
+        return service.updateTemplate(id, request);
+    }
+
     @GetMapping("/clauses")
     List<ClauseView> clauses() {
         return service.clauses();
@@ -67,6 +76,14 @@ public class DocumentGovernanceController {
         return service.createClause(request);
     }
 
+    @PutMapping("/clauses/{id}")
+    ClauseView updateClause(
+            @PathVariable UUID id,
+            @Valid @RequestBody ClauseUpdateRequest request
+    ) {
+        return service.updateClause(id, request);
+    }
+
     @GetMapping("/retention-rules")
     List<RetentionRuleView> retentionRules() {
         return service.retentionRules();
@@ -75,6 +92,14 @@ public class DocumentGovernanceController {
     @PostMapping("/retention-rules")
     RetentionRuleView createRetentionRule(@Valid @RequestBody RetentionRuleRequest request) {
         return service.createRetentionRule(request);
+    }
+
+    @PutMapping("/retention-rules/{id}")
+    RetentionRuleView updateRetentionRule(
+            @PathVariable UUID id,
+            @Valid @RequestBody RetentionRuleUpdateRequest request
+    ) {
+        return service.updateRetentionRule(id, request);
     }
 
     @GetMapping("/legal-holds")
@@ -146,6 +171,17 @@ public class DocumentGovernanceController {
             String title, String bodyMarkdown, Instant updatedAt
     ) {}
 
+    public record TemplateUpdateRequest(
+            UUID officeId,
+            @NotBlank @Size(max = 200) String nameZh,
+            @NotBlank @Size(max = 200) String nameEn,
+            @NotBlank @Size(max = 80) String category,
+            @NotBlank @Size(max = 24) String status,
+            @NotBlank @Size(max = 300) String title,
+            @NotBlank @Size(max = 200000) String bodyMarkdown,
+            @Size(max = 500) String changeNote
+    ) {}
+
     public record ClauseRequest(
             UUID officeId,
             @NotBlank @Size(max = 80) String code,
@@ -167,6 +203,20 @@ public class DocumentGovernanceController {
             Instant updatedAt
     ) {}
 
+    public record ClauseUpdateRequest(
+            UUID officeId,
+            @NotBlank @Size(max = 300) String titleZh,
+            @NotBlank @Size(max = 300) String titleEn,
+            @NotBlank @Size(max = 80) String category,
+            @NotBlank @Size(max = 24) String riskLevel,
+            @NotBlank @Size(max = 24) String status,
+            @NotBlank @Size(max = 100000) String bodyZh,
+            @NotBlank @Size(max = 100000) String bodyEn,
+            @Size(max = 10000) String guidanceZh,
+            @Size(max = 10000) String guidanceEn,
+            @Size(max = 500) String changeNote
+    ) {}
+
     public record RetentionRuleRequest(
             UUID officeId,
             @NotBlank @Size(max = 64) String resourceType,
@@ -178,6 +228,15 @@ public class DocumentGovernanceController {
     public record RetentionRuleView(
             UUID id, UUID officeId, String resourceType, String documentType,
             int retentionYears, String dispositionAction, boolean enabled, Instant updatedAt
+    ) {}
+
+    public record RetentionRuleUpdateRequest(
+            UUID officeId,
+            @NotBlank @Size(max = 64) String resourceType,
+            @Size(max = 80) String documentType,
+            @Min(1) @Max(100) int retentionYears,
+            @NotBlank @Size(max = 24) String dispositionAction,
+            boolean enabled
     ) {}
 
     public record LegalHoldRequest(

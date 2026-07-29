@@ -6,9 +6,11 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Future;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,9 +23,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/documents")
 public class DocumentController {
     private final DocumentService documentService;
+    private final DocumentGrantService grantService;
 
-    public DocumentController(DocumentService documentService) {
+    public DocumentController(
+            DocumentService documentService,
+            DocumentGrantService grantService
+    ) {
         this.documentService = documentService;
+        this.grantService = grantService;
     }
 
     @GetMapping
@@ -60,6 +67,32 @@ public class DocumentController {
         return documentService.preview(documentId, versionId);
     }
 
+    @GetMapping("/{documentId}/versions")
+    List<DocumentVersionView> versions(@PathVariable UUID documentId) {
+        return documentService.versions(documentId);
+    }
+
+    @GetMapping("/{documentId}/grants")
+    List<DocumentGrantView> grants(@PathVariable UUID documentId) {
+        return grantService.list(documentId);
+    }
+
+    @PostMapping("/{documentId}/grants")
+    DocumentGrantView grant(
+            @PathVariable UUID documentId,
+            @Valid @RequestBody DocumentGrantRequest request
+    ) {
+        return grantService.grant(documentId, request);
+    }
+
+    @DeleteMapping("/{documentId}/grants/{grantId}")
+    void revokeGrant(
+            @PathVariable UUID documentId,
+            @PathVariable UUID grantId
+    ) {
+        grantService.revoke(documentId, grantId);
+    }
+
     public record InitiateUploadRequest(
             UUID documentId,
             UUID matterId,
@@ -81,6 +114,43 @@ public class DocumentController {
     ) {}
 
     public record DownloadTicket(String downloadUrl, Instant expiresAt) {}
+
+    public record DocumentVersionView(
+            UUID id,
+            int versionNumber,
+            String filename,
+            String contentType,
+            String detectedContentType,
+            long sizeBytes,
+            String sha256,
+            String status,
+            String signatureStatus,
+            String ingestionStatus,
+            boolean current,
+            UUID createdBy,
+            String createdByName,
+            Instant createdAt,
+            Instant scanCompletedAt
+    ) {}
+
+    public record DocumentGrantRequest(
+            UUID userId,
+            @NotBlank @Size(max = 32) String permission,
+            @Future Instant expiresAt
+    ) {}
+
+    public record DocumentGrantView(
+            UUID id,
+            UUID userId,
+            String username,
+            String displayName,
+            String permission,
+            UUID grantedBy,
+            String grantedByName,
+            Instant expiresAt,
+            Instant createdAt,
+            boolean active
+    ) {}
 
     public record DocumentView(
             UUID id,

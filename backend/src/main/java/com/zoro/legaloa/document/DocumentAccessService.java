@@ -137,6 +137,85 @@ public class DocumentAccessService {
         }
     }
 
+    public void requireDocumentShare(RequestActor actor, UUID documentId) {
+        Boolean allowed = jdbcClient.sql("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM documents d
+                            LEFT JOIN matter_members mm
+                              ON mm.matter_id = d.matter_id
+                             AND mm.user_id = :userId AND mm.left_at IS NULL
+                            LEFT JOIN contract_members cm
+                              ON cm.contract_id = d.contract_id
+                             AND cm.user_id = :userId
+                            LEFT JOIN document_grants dg
+                              ON dg.document_id = d.id AND dg.user_id = :userId
+                             AND (dg.expires_at IS NULL OR dg.expires_at > now())
+                            WHERE d.id = :documentId
+                              AND d.organization_id = :organizationId
+                              AND d.deleted_at IS NULL
+                              AND (
+                                mm.member_role IN ('RESPONSIBLE', 'LEAD')
+                                OR cm.member_role IN ('RESPONSIBLE', 'LEAD')
+                                OR dg.permission = 'SHARE'
+                              )
+                        )
+                        """)
+                .param("userId", actor.userId())
+                .param("documentId", documentId)
+                .param("organizationId", actor.organizationId())
+                .query(Boolean.class)
+                .single();
+        if (!Boolean.TRUE.equals(allowed)) {
+            throw denied();
+        }
+    }
+
+    public void requireDocumentEdit(
+            RequestActor actor,
+            UUID documentId,
+            UUID matterId,
+            UUID contractId
+    ) {
+        Boolean allowed = jdbcClient.sql("""
+                        SELECT EXISTS (
+                            SELECT 1 FROM documents d
+                            LEFT JOIN matter_members mm
+                              ON mm.matter_id = d.matter_id
+                             AND mm.user_id = :userId AND mm.left_at IS NULL
+                            LEFT JOIN contract_members cm
+                              ON cm.contract_id = d.contract_id
+                             AND cm.user_id = :userId
+                            LEFT JOIN document_grants dg
+                              ON dg.document_id = d.id AND dg.user_id = :userId
+                             AND (dg.expires_at IS NULL OR dg.expires_at > now())
+                            WHERE d.id = :documentId
+                              AND d.organization_id = :organizationId
+                              AND d.deleted_at IS NULL
+                              AND (
+                                (:byMatter AND d.matter_id = :matterId)
+                                OR (:byContract AND d.contract_id = :contractId)
+                              )
+                              AND (
+                                mm.member_role IN ('RESPONSIBLE', 'LEAD', 'COUNSEL')
+                                OR cm.member_role IN ('RESPONSIBLE', 'LEAD', 'COUNSEL')
+                                OR dg.permission IN ('EDIT', 'SHARE')
+                              )
+                        )
+                        """)
+                .param("userId", actor.userId())
+                .param("documentId", documentId)
+                .param("organizationId", actor.organizationId())
+                .param("byMatter", matterId != null)
+                .param("matterId", matterId == null ? new UUID(0, 0) : matterId)
+                .param("byContract", contractId != null)
+                .param("contractId", contractId == null ? new UUID(0, 0) : contractId)
+                .query(Boolean.class)
+                .single();
+        if (!Boolean.TRUE.equals(allowed)) {
+            throw denied();
+        }
+    }
+
     private static BusinessException denied() {
         return new BusinessException(
                 "DOCUMENT_ACCESS_DENIED",

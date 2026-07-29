@@ -17,11 +17,14 @@ import com.zoro.legaloa.document.DocumentGovernanceController.IndexView;
 import com.zoro.legaloa.document.DocumentGovernanceController.LegalHoldRequest;
 import com.zoro.legaloa.document.DocumentGovernanceController.LegalHoldView;
 import com.zoro.legaloa.document.DocumentGovernanceController.RetentionRuleRequest;
+import com.zoro.legaloa.document.DocumentGovernanceController.RetentionRuleUpdateRequest;
 import com.zoro.legaloa.document.DocumentGovernanceController.RetentionRuleView;
 import com.zoro.legaloa.document.DocumentGovernanceController.SearchHit;
 import com.zoro.legaloa.document.DocumentGovernanceController.TemplateRequest;
+import com.zoro.legaloa.document.DocumentGovernanceController.TemplateUpdateRequest;
 import com.zoro.legaloa.document.DocumentGovernanceController.TemplateView;
 import com.zoro.legaloa.document.DocumentGovernanceController.VersionView;
+import com.zoro.legaloa.document.DocumentGovernanceController.ClauseUpdateRequest;
 import com.zoro.legaloa.identity.OfficeAccessScope;
 import com.zoro.legaloa.identity.OfficeAccessService;
 import com.zoro.legaloa.identity.RequestActor;
@@ -300,8 +303,7 @@ public class DocumentGovernanceService {
     public TemplateView createTemplate(TemplateRequest request) {
         RequestActor actor = actorProvider.current();
         requireManage(actor);
-        UUID officeId = request.officeId() == null ? null
-                : officeAccessService.resolveManagedOffice(actor, request.officeId());
+        UUID officeId = resolveManagementOffice(actor, request.officeId());
         UUID id = jdbcClient.sql("""
                         INSERT INTO document_templates
                             (organization_id, office_id, code, name_zh, name_en,
@@ -342,6 +344,55 @@ public class DocumentGovernanceService {
         return template(id, actor.organizationId());
     }
 
+    @Transactional
+    public TemplateView updateTemplate(UUID id, TemplateUpdateRequest request) {
+        RequestActor actor = actorProvider.current();
+        requireManage(actor);
+        requireManagedRecordOffice(actor, "document_templates", id);
+        UUID officeId = resolveManagementOffice(actor, request.officeId());
+        String status = normalizedStatus(request.status());
+        int nextVersion = nextVersion("document_template_versions", "template_id", id);
+        UUID versionId = jdbcClient.sql("""
+                        INSERT INTO document_template_versions
+                            (template_id, version_number, title, body_markdown,
+                             change_note, created_by)
+                        VALUES (:templateId, :versionNumber, :title, :body, :note, :createdBy)
+                        RETURNING id
+                        """)
+                .param("templateId", id)
+                .param("versionNumber", nextVersion)
+                .param("title", request.title().trim())
+                .param("body", request.bodyMarkdown())
+                .param("note", request.changeNote())
+                .param("createdBy", actor.userId())
+                .query(UUID.class).single();
+        int updated = jdbcClient.sql("""
+                        UPDATE document_templates
+                        SET office_id = :officeId, name_zh = :nameZh, name_en = :nameEn,
+                            category = :category, status = :status,
+                            current_version_id = :versionId, updated_at = now()
+                        WHERE id = :id AND organization_id = :organizationId
+                          AND deleted_at IS NULL
+                        """)
+                .param("officeId", officeId)
+                .param("nameZh", request.nameZh().trim())
+                .param("nameEn", request.nameEn().trim())
+                .param("category", normalizedCode(request.category()))
+                .param("status", status)
+                .param("versionId", versionId)
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .update();
+        if (updated != 1) {
+            throw notFound("DOCUMENT_TEMPLATE_NOT_FOUND", "文档模板不存在");
+        }
+        auditService.record(
+                actor, "DOCUMENT_TEMPLATE_UPDATE", "DOCUMENT_TEMPLATE", id,
+                "SUCCESS", null, Map.of("versionNumber", nextVersion, "status", status)
+        );
+        return template(id, actor.organizationId());
+    }
+
     @Transactional(readOnly = true)
     public List<ClauseView> clauses() {
         RequestActor actor = actorProvider.current();
@@ -374,8 +425,7 @@ public class DocumentGovernanceService {
         if (!RISK_LEVELS.contains(riskLevel)) {
             throw invalidEnum("CLAUSE_RISK_INVALID");
         }
-        UUID officeId = request.officeId() == null ? null
-                : officeAccessService.resolveManagedOffice(actor, request.officeId());
+        UUID officeId = resolveManagementOffice(actor, request.officeId());
         UUID id = jdbcClient.sql("""
                         INSERT INTO clause_library
                             (organization_id, office_id, code, title_zh, title_en,
@@ -417,6 +467,63 @@ public class DocumentGovernanceService {
         return clause(id, actor.organizationId());
     }
 
+    @Transactional
+    public ClauseView updateClause(UUID id, ClauseUpdateRequest request) {
+        RequestActor actor = actorProvider.current();
+        requireManage(actor);
+        requireManagedRecordOffice(actor, "clause_library", id);
+        UUID officeId = resolveManagementOffice(actor, request.officeId());
+        String riskLevel = normalizedCode(request.riskLevel());
+        if (!RISK_LEVELS.contains(riskLevel)) {
+            throw invalidEnum("CLAUSE_RISK_INVALID");
+        }
+        String status = normalizedStatus(request.status());
+        int nextVersion = nextVersion("clause_versions", "clause_id", id);
+        UUID versionId = jdbcClient.sql("""
+                        INSERT INTO clause_versions
+                            (clause_id, version_number, body_zh, body_en,
+                             guidance_zh, guidance_en, change_note, created_by)
+                        VALUES (:clauseId, :versionNumber, :bodyZh, :bodyEn,
+                                :guidanceZh, :guidanceEn, :note, :createdBy)
+                        RETURNING id
+                        """)
+                .param("clauseId", id)
+                .param("versionNumber", nextVersion)
+                .param("bodyZh", request.bodyZh())
+                .param("bodyEn", request.bodyEn())
+                .param("guidanceZh", request.guidanceZh())
+                .param("guidanceEn", request.guidanceEn())
+                .param("note", request.changeNote())
+                .param("createdBy", actor.userId())
+                .query(UUID.class).single();
+        int updated = jdbcClient.sql("""
+                        UPDATE clause_library
+                        SET office_id = :officeId, title_zh = :titleZh, title_en = :titleEn,
+                            category = :category, risk_level = :riskLevel, status = :status,
+                            current_version_id = :versionId, updated_at = now()
+                        WHERE id = :id AND organization_id = :organizationId
+                          AND deleted_at IS NULL
+                        """)
+                .param("officeId", officeId)
+                .param("titleZh", request.titleZh().trim())
+                .param("titleEn", request.titleEn().trim())
+                .param("category", normalizedCode(request.category()))
+                .param("riskLevel", riskLevel)
+                .param("status", status)
+                .param("versionId", versionId)
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .update();
+        if (updated != 1) {
+            throw notFound("CLAUSE_NOT_FOUND", "条款不存在");
+        }
+        auditService.record(
+                actor, "CLAUSE_UPDATE", "CLAUSE", id,
+                "SUCCESS", null, Map.of("versionNumber", nextVersion, "status", status)
+        );
+        return clause(id, actor.organizationId());
+    }
+
     @Transactional(readOnly = true)
     public List<RetentionRuleView> retentionRules() {
         RequestActor actor = actorProvider.current();
@@ -454,8 +561,7 @@ public class DocumentGovernanceService {
         if (!DISPOSITION_ACTIONS.contains(action)) {
             throw invalidEnum("RETENTION_ACTION_INVALID");
         }
-        UUID officeId = request.officeId() == null ? null
-                : officeAccessService.resolveManagedOffice(actor, request.officeId());
+        UUID officeId = resolveManagementOffice(actor, request.officeId());
         UUID id = jdbcClient.sql("""
                         INSERT INTO retention_rules
                             (organization_id, office_id, resource_type, document_type,
@@ -474,6 +580,43 @@ public class DocumentGovernanceService {
                 .param("createdBy", actor.userId())
                 .query(UUID.class).single();
         auditService.success(actor, "RETENTION_RULE_CREATE", "RETENTION_RULE", id);
+        return retentionRule(id, actor.organizationId());
+    }
+
+    @Transactional
+    public RetentionRuleView updateRetentionRule(UUID id, RetentionRuleUpdateRequest request) {
+        RequestActor actor = actorProvider.current();
+        requireManage(actor);
+        requireManagedRecordOffice(actor, "retention_rules", id);
+        UUID officeId = resolveManagementOffice(actor, request.officeId());
+        String action = normalizedCode(request.dispositionAction());
+        if (!DISPOSITION_ACTIONS.contains(action)) {
+            throw invalidEnum("RETENTION_ACTION_INVALID");
+        }
+        int updated = jdbcClient.sql("""
+                        UPDATE retention_rules
+                        SET office_id = :officeId, resource_type = :resourceType,
+                            document_type = :documentType, retention_years = :years,
+                            disposition_action = :action, enabled = :enabled,
+                            updated_at = now()
+                        WHERE id = :id AND organization_id = :organizationId
+                        """)
+                .param("officeId", officeId)
+                .param("resourceType", normalizedCode(request.resourceType()))
+                .param("documentType", blankToNull(request.documentType()))
+                .param("years", request.retentionYears())
+                .param("action", action)
+                .param("enabled", request.enabled())
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .update();
+        if (updated != 1) {
+            throw notFound("RETENTION_RULE_NOT_FOUND", "保留规则不存在");
+        }
+        auditService.record(
+                actor, "RETENTION_RULE_UPDATE", "RETENTION_RULE", id,
+                "SUCCESS", null, Map.of("enabled", request.enabled(), "action", action)
+        );
         return retentionRule(id, actor.organizationId());
     }
 
@@ -832,6 +975,83 @@ public class DocumentGovernanceService {
 
     private void requireManage(RequestActor actor) {
         authorizationService.requirePermission(actor, "DOCUMENT_GOVERNANCE_MANAGE");
+    }
+
+    private UUID resolveManagementOffice(RequestActor actor, UUID requestedOfficeId) {
+        if (requestedOfficeId != null) {
+            return officeAccessService.resolveManagedOffice(actor, requestedOfficeId);
+        }
+        if (!officeAccessService.scope(actor).globalAccess()) {
+            throw new BusinessException(
+                    "OFFICE_MANAGE_DENIED", "仅全局管理员可以维护全所规则",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+        return null;
+    }
+
+    private void requireManagedRecordOffice(
+            RequestActor actor,
+            String table,
+            UUID id
+    ) {
+        if (!Set.of("document_templates", "clause_library", "retention_rules").contains(table)) {
+            throw new IllegalArgumentException("Unsupported governance table");
+        }
+        UUID officeId = jdbcClient.sql("""
+                        SELECT office_id FROM %s
+                        WHERE id = :id AND organization_id = :organizationId
+                        FOR UPDATE
+                        """.formatted(table))
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .query(UUID.class)
+                .optional()
+                .orElse(null);
+        boolean exists = Boolean.TRUE.equals(jdbcClient.sql("""
+                        SELECT EXISTS (
+                          SELECT 1 FROM %s
+                          WHERE id = :id AND organization_id = :organizationId
+                        )
+                        """.formatted(table))
+                .param("id", id)
+                .param("organizationId", actor.organizationId())
+                .query(Boolean.class).single());
+        if (!exists) {
+            throw notFound("GOVERNANCE_RECORD_NOT_FOUND", "治理记录不存在");
+        }
+        OfficeAccessScope scope = officeAccessService.scope(actor);
+        if (officeId == null ? !scope.globalAccess() : !scope.canManage(officeId)) {
+            throw new BusinessException(
+                    "OFFICE_MANAGE_DENIED", "无权管理该办公室的治理记录",
+                    HttpStatus.FORBIDDEN
+            );
+        }
+    }
+
+    private int nextVersion(String table, String foreignKey, UUID id) {
+        if (!Set.of("document_template_versions", "clause_versions").contains(table)
+                || !Set.of("template_id", "clause_id").contains(foreignKey)) {
+            throw new IllegalArgumentException("Unsupported version table");
+        }
+        return jdbcClient.sql("""
+                        SELECT COALESCE(MAX(version_number), 0) + 1
+                        FROM %s WHERE %s = :id
+                        """.formatted(table, foreignKey))
+                .param("id", id)
+                .query(Integer.class).single();
+    }
+
+    private static String normalizedStatus(String status) {
+        String normalized = normalizedCode(status);
+        if (!Set.of("ACTIVE", "INACTIVE").contains(normalized)) {
+            throw invalidEnum("GOVERNANCE_STATUS_INVALID");
+        }
+        return normalized;
+    }
+
+    private static BusinessException notFound(String code, String message) {
+        return new BusinessException(code, message, HttpStatus.NOT_FOUND);
     }
 
     private IndexView indexView(UUID versionId, UUID organizationId) {

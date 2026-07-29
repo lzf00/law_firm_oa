@@ -7,6 +7,7 @@ import com.zoro.legaloa.archive.ArchiveController.CreateArchiveVolumeRequest;
 import com.zoro.legaloa.admin.AdminController.ImportRequest;
 import com.zoro.legaloa.admin.AdminController.UserAccessRequest;
 import com.zoro.legaloa.document.DocumentController.InitiateUploadRequest;
+import com.zoro.legaloa.document.DocumentController.DocumentGrantRequest;
 import com.zoro.legaloa.document.DocumentGovernanceController.RetentionRuleRequest;
 import com.zoro.legaloa.finance.FinanceController.EngagementRequest;
 import com.zoro.legaloa.finance.FinanceController.TimeEntryRequest;
@@ -118,6 +119,10 @@ class RequestValidationTest {
                 null, ID, null, "Evidence", "CASE_FILE", "a.pdf",
                 "application/pdf", 1, "a".repeat(64)
         ));
+        assertInvalid(new DocumentGrantRequest(
+                ID, "PREVIEW", Instant.now().minusSeconds(1)
+        ), "expiresAt");
+        assertValid(new DocumentGrantRequest(ID, "DOWNLOAD", FUTURE));
     }
 
     @Test

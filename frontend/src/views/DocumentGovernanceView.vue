@@ -8,29 +8,38 @@ import {
   FileSearch2,
   FileText,
   LibraryBig,
+  Pencil,
+  Plus,
+  Power,
   Scale,
+  Save,
   Search,
   ShieldCheck,
   X,
 } from '@lucide/vue'
 import { ElMessage } from 'element-plus'
 import { http } from '@/api/http'
+import type { CurrentUser, Matter } from '@/api/types'
 import { useI18n } from '@/i18n'
 import { formatLegalCode } from '@/legalFormat'
 
 interface Template {
   id: string
+  officeId?: string
   code: string
   nameZh: string
   nameEn: string
   category: string
   status: string
   versionNumber: number
+  title: string
+  bodyMarkdown: string
   updatedAt: string
 }
 
 interface Clause {
   id: string
+  officeId?: string
   code: string
   titleZh: string
   titleEn: string
@@ -38,6 +47,10 @@ interface Clause {
   riskLevel: string
   status: string
   versionNumber: number
+  bodyZh: string
+  bodyEn: string
+  guidanceZh?: string
+  guidanceEn?: string
   updatedAt: string
 }
 
@@ -52,11 +65,13 @@ interface Hold {
 
 interface Rule {
   id: string
+  officeId?: string
   resourceType: string
   documentType?: string
   retentionYears: number
   dispositionAction: string
   enabled: boolean
+  updatedAt: string
 }
 
 interface SearchHit {
@@ -69,6 +84,13 @@ interface SearchHit {
 }
 
 type GovernanceSection = 'templates' | 'clauses' | 'holds' | 'rules'
+type EditorMode = GovernanceSection | 'release'
+
+interface Contract {
+  id: string
+  contractNumber: string
+  title: string
+}
 
 const { locale, t, tp } = useI18n()
 const loading = ref(true)
@@ -82,6 +104,46 @@ const clauses = ref<Clause[]>([])
 const holds = ref<Hold[]>([])
 const rules = ref<Rule[]>([])
 const results = ref<SearchHit[]>([])
+const currentUser = ref<CurrentUser | null>(null)
+const matters = ref<Matter[]>([])
+const contracts = ref<Contract[]>([])
+const editorDialog = ref(false)
+const editorMode = ref<EditorMode>('templates')
+const editingId = ref('')
+const saving = ref(false)
+const form = ref({
+  officeId: '',
+  code: '',
+  nameZh: '',
+  nameEn: '',
+  title: '',
+  titleZh: '',
+  titleEn: '',
+  category: '',
+  status: 'ACTIVE',
+  bodyMarkdown: '',
+  riskLevel: 'STANDARD',
+  bodyZh: '',
+  bodyEn: '',
+  guidanceZh: '',
+  guidanceEn: '',
+  changeNote: '',
+  resourceType: 'MATTER',
+  resourceId: '',
+  documentType: '',
+  retentionYears: 10,
+  dispositionAction: 'REVIEW',
+  enabled: true,
+  name: '',
+  reason: '',
+})
+
+const canManage = computed(() =>
+  currentUser.value?.permissions.includes('DOCUMENT_GOVERNANCE_MANAGE') ?? false)
+const canManageHolds = computed(() =>
+  currentUser.value?.permissions.includes('LEGAL_HOLD_MANAGE') ?? false)
+const manageableOffices = computed(() =>
+  currentUser.value?.accessibleOffices.filter((office) => office.manageable) ?? [])
 
 const sections = computed(() => [
   {
@@ -140,20 +202,209 @@ function clearSearch() {
 async function load() {
   loading.value = true
   try {
-    const [templateResult, clauseResult, holdResult, ruleResult] = await Promise.all([
+    const [templateResult, clauseResult, holdResult, ruleResult, meResult, matterResult, contractResult] = await Promise.all([
       http.get<Template[]>('/document-governance/templates'),
       http.get<Clause[]>('/document-governance/clauses'),
       http.get<Hold[]>('/document-governance/legal-holds'),
       http.get<Rule[]>('/document-governance/retention-rules'),
+      http.get<CurrentUser>('/me'),
+      http.get<Matter[]>('/matters'),
+      http.get<Contract[]>('/contracts'),
     ])
     templates.value = templateResult.data
     clauses.value = clauseResult.data
     holds.value = holdResult.data
     rules.value = ruleResult.data
+    currentUser.value = meResult.data
+    matters.value = matterResult.data
+    contracts.value = contractResult.data
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : t('p1.loadFailed'))
   } finally {
     loading.value = false
+  }
+}
+
+function resetForm() {
+  form.value = {
+    officeId: currentUser.value?.globalOfficeAccess
+      ? ''
+      : manageableOffices.value[0]?.id ?? '',
+    code: '',
+    nameZh: '',
+    nameEn: '',
+    title: '',
+    titleZh: '',
+    titleEn: '',
+    category: '',
+    status: 'ACTIVE',
+    bodyMarkdown: '',
+    riskLevel: 'STANDARD',
+    bodyZh: '',
+    bodyEn: '',
+    guidanceZh: '',
+    guidanceEn: '',
+    changeNote: '',
+    resourceType: 'MATTER',
+    resourceId: matters.value[0]?.id ?? '',
+    documentType: '',
+    retentionYears: 10,
+    dispositionAction: 'REVIEW',
+    enabled: true,
+    name: '',
+    reason: '',
+  }
+}
+
+function openCreate() {
+  editingId.value = ''
+  editorMode.value = activeSection.value
+  resetForm()
+  editorDialog.value = true
+}
+
+function openEdit(item: Template | Clause | Rule) {
+  resetForm()
+  editingId.value = item.id
+  if ('nameZh' in item) {
+    editorMode.value = 'templates'
+    Object.assign(form.value, {
+      officeId: item.officeId ?? '',
+      code: item.code,
+      nameZh: item.nameZh,
+      nameEn: item.nameEn,
+      title: item.title,
+      category: item.category,
+      status: item.status,
+      bodyMarkdown: item.bodyMarkdown,
+    })
+  } else if ('riskLevel' in item) {
+    editorMode.value = 'clauses'
+    Object.assign(form.value, {
+      officeId: item.officeId ?? '',
+      code: item.code,
+      titleZh: item.titleZh,
+      titleEn: item.titleEn,
+      category: item.category,
+      status: item.status,
+      riskLevel: item.riskLevel,
+      bodyZh: item.bodyZh,
+      bodyEn: item.bodyEn,
+      guidanceZh: item.guidanceZh ?? '',
+      guidanceEn: item.guidanceEn ?? '',
+    })
+  } else {
+    editorMode.value = 'rules'
+    Object.assign(form.value, {
+      officeId: item.officeId ?? '',
+      resourceType: item.resourceType,
+      documentType: item.documentType ?? '',
+      retentionYears: item.retentionYears,
+      dispositionAction: item.dispositionAction,
+      enabled: item.enabled,
+    })
+  }
+  editorDialog.value = true
+}
+
+function openRelease(item: Hold) {
+  resetForm()
+  editingId.value = item.id
+  editorMode.value = 'release'
+  form.value.name = item.name
+  editorDialog.value = true
+}
+
+function editorTitle() {
+  if (editorMode.value === 'release') return t('governance.releaseHold')
+  if (editingId.value) return t(`governance.edit.${editorMode.value}`)
+  return t(`governance.create.${editorMode.value}`)
+}
+
+function resourceOptions() {
+  if (form.value.resourceType === 'CONTRACT') {
+    return contracts.value.map((item) => ({
+      id: item.id,
+      label: `${item.contractNumber} · ${item.title}`,
+    }))
+  }
+  return matters.value.map((item) => ({
+    id: item.id,
+    label: `${item.matterNumber} · ${item.title}`,
+  }))
+}
+
+function changeResourceType() {
+  form.value.resourceId = resourceOptions()[0]?.id ?? ''
+}
+
+async function saveEditor() {
+  saving.value = true
+  try {
+    const officeId = form.value.officeId || null
+    if (editorMode.value === 'templates') {
+      const payload = {
+        officeId,
+        code: form.value.code,
+        nameZh: form.value.nameZh,
+        nameEn: form.value.nameEn,
+        category: form.value.category,
+        status: form.value.status,
+        title: form.value.title,
+        bodyMarkdown: form.value.bodyMarkdown,
+        changeNote: form.value.changeNote || null,
+      }
+      if (editingId.value) await http.put(`/document-governance/templates/${editingId.value}`, payload)
+      else await http.post('/document-governance/templates', payload)
+    } else if (editorMode.value === 'clauses') {
+      const payload = {
+        officeId,
+        code: form.value.code,
+        titleZh: form.value.titleZh,
+        titleEn: form.value.titleEn,
+        category: form.value.category,
+        riskLevel: form.value.riskLevel,
+        status: form.value.status,
+        bodyZh: form.value.bodyZh,
+        bodyEn: form.value.bodyEn,
+        guidanceZh: form.value.guidanceZh || null,
+        guidanceEn: form.value.guidanceEn || null,
+        changeNote: form.value.changeNote || null,
+      }
+      if (editingId.value) await http.put(`/document-governance/clauses/${editingId.value}`, payload)
+      else await http.post('/document-governance/clauses', payload)
+    } else if (editorMode.value === 'rules') {
+      const payload = {
+        officeId,
+        resourceType: form.value.resourceType,
+        documentType: form.value.documentType || null,
+        retentionYears: Number(form.value.retentionYears),
+        dispositionAction: form.value.dispositionAction,
+        enabled: form.value.enabled,
+      }
+      if (editingId.value) await http.put(`/document-governance/retention-rules/${editingId.value}`, payload)
+      else await http.post('/document-governance/retention-rules', payload)
+    } else if (editorMode.value === 'holds') {
+      await http.post('/document-governance/legal-holds', {
+        name: form.value.name,
+        reason: form.value.reason,
+        resources: [{
+          resourceType: form.value.resourceType,
+          resourceId: form.value.resourceId,
+        }],
+      })
+    } else {
+      await http.post(`/document-governance/legal-holds/${editingId.value}/release`, {
+        reason: form.value.reason,
+      })
+    }
+    editorDialog.value = false
+    await load()
+    ElMessage.success(t('governance.saved'))
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : t('governance.saveFailed'))
+  } finally {
+    saving.value = false
   }
 }
 
@@ -296,7 +547,17 @@ onMounted(load)
             <h3>{{ activeMeta.label }}</h3>
             <p>{{ activeMeta.description }}</p>
           </div>
-          <span class="record-count">{{ tp('governance.items', { count: activeMeta.count }) }}</span>
+          <div class="workspace-actions">
+            <span class="record-count">{{ tp('governance.items', { count: activeMeta.count }) }}</span>
+            <button
+              v-if="(activeSection === 'holds' ? canManageHolds : canManage)"
+              class="primary-action compact-action"
+              type="button"
+              @click="openCreate"
+            >
+              <Plus :size="15" />{{ t(`governance.add.${activeSection}`) }}
+            </button>
+          </div>
         </header>
 
         <div v-if="loading" class="empty-state">
@@ -315,6 +576,9 @@ onMounted(load)
               <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
               <small>{{ tp('governance.version', { version: item.versionNumber }) }} · {{ formatDate(item.updatedAt) }}</small>
             </div>
+            <button v-if="canManage" class="record-action" type="button" :aria-label="t('governance.editAction')" @click="openEdit(item)">
+              <Pencil :size="15" />
+            </button>
           </article>
         </div>
 
@@ -331,6 +595,9 @@ onMounted(load)
               </span>
               <small>{{ tp('governance.version', { version: item.versionNumber }) }} · {{ formatDate(item.updatedAt) }}</small>
             </div>
+            <button v-if="canManage" class="record-action" type="button" :aria-label="t('governance.editAction')" @click="openEdit(item)">
+              <Pencil :size="15" />
+            </button>
           </article>
         </div>
 
@@ -345,6 +612,15 @@ onMounted(load)
               <span class="status-pill">{{ formatLegalCode(item.status, locale) }}</span>
               <small>{{ tp('governance.protected', { count: item.resourceCount }) }} · {{ formatDate(item.createdAt) }}</small>
             </div>
+            <button
+              v-if="canManageHolds && item.status === 'ACTIVE'"
+              class="record-action release"
+              type="button"
+              :aria-label="t('governance.releaseHold')"
+              @click="openRelease(item)"
+            >
+              <Power :size="15" />
+            </button>
           </article>
         </div>
 
@@ -362,6 +638,9 @@ onMounted(load)
               </span>
               <small>{{ tp('governance.keepYears', { years: item.retentionYears }) }} · {{ formatLegalCode(item.dispositionAction, locale) }}</small>
             </div>
+            <button v-if="canManage" class="record-action" type="button" :aria-label="t('governance.editAction')" @click="openEdit(item)">
+              <Pencil :size="15" />
+            </button>
           </article>
         </div>
 
@@ -372,6 +651,148 @@ onMounted(load)
         </div>
       </section>
     </template>
+
+    <el-dialog
+      v-model="editorDialog"
+      :title="editorTitle()"
+      width="min(760px, 94vw)"
+      class="governance-editor-dialog"
+      top="5vh"
+      append-to-body
+    >
+      <form class="governance-editor" @submit.prevent="saveEditor">
+        <aside>
+          <ShieldCheck :size="20" />
+          <span>{{ t('governance.editorHint') }}</span>
+        </aside>
+
+        <template v-if="editorMode === 'templates'">
+          <label v-if="!editingId">
+            <span>{{ t('governance.code') }}</span>
+            <input v-model="form.code" required maxlength="80" />
+          </label>
+          <div class="field-grid">
+            <label><span>{{ t('governance.nameZh') }}</span><input v-model="form.nameZh" required maxlength="200" /></label>
+            <label><span>{{ t('governance.nameEn') }}</span><input v-model="form.nameEn" required maxlength="200" /></label>
+          </div>
+          <div class="field-grid">
+            <label><span>{{ t('governance.category') }}</span><input v-model="form.category" required maxlength="80" /></label>
+            <label v-if="editingId">
+              <span>{{ t('p1.status') }}</span>
+              <select v-model="form.status"><option value="ACTIVE">{{ t('governance.enabled') }}</option><option value="INACTIVE">{{ t('governance.disabled') }}</option></select>
+            </label>
+          </div>
+          <label><span>{{ t('governance.versionTitle') }}</span><input v-model="form.title" required maxlength="300" /></label>
+          <label><span>{{ t('governance.templateBody') }}</span><textarea v-model="form.bodyMarkdown" required rows="9" /></label>
+        </template>
+
+        <template v-else-if="editorMode === 'clauses'">
+          <label v-if="!editingId">
+            <span>{{ t('governance.code') }}</span>
+            <input v-model="form.code" required maxlength="80" />
+          </label>
+          <div class="field-grid">
+            <label><span>{{ t('governance.titleZh') }}</span><input v-model="form.titleZh" required maxlength="300" /></label>
+            <label><span>{{ t('governance.titleEn') }}</span><input v-model="form.titleEn" required maxlength="300" /></label>
+          </div>
+          <div class="field-grid three">
+            <label><span>{{ t('governance.category') }}</span><input v-model="form.category" required maxlength="80" /></label>
+            <label>
+              <span>{{ t('p1.risk') }}</span>
+              <select v-model="form.riskLevel">
+                <option value="STANDARD">{{ formatLegalCode('STANDARD', locale) }}</option>
+                <option value="REVIEW_REQUIRED">{{ formatLegalCode('REVIEW_REQUIRED', locale) }}</option>
+                <option value="RESTRICTED">{{ formatLegalCode('RESTRICTED', locale) }}</option>
+              </select>
+            </label>
+            <label v-if="editingId">
+              <span>{{ t('p1.status') }}</span>
+              <select v-model="form.status"><option value="ACTIVE">{{ t('governance.enabled') }}</option><option value="INACTIVE">{{ t('governance.disabled') }}</option></select>
+            </label>
+          </div>
+          <div class="field-grid">
+            <label><span>{{ t('governance.bodyZh') }}</span><textarea v-model="form.bodyZh" required rows="7" /></label>
+            <label><span>{{ t('governance.bodyEn') }}</span><textarea v-model="form.bodyEn" required rows="7" /></label>
+          </div>
+          <div class="field-grid">
+            <label><span>{{ t('governance.guidanceZh') }}</span><textarea v-model="form.guidanceZh" rows="3" /></label>
+            <label><span>{{ t('governance.guidanceEn') }}</span><textarea v-model="form.guidanceEn" rows="3" /></label>
+          </div>
+        </template>
+
+        <template v-else-if="editorMode === 'rules'">
+          <div class="field-grid">
+            <label><span>{{ t('governance.resourceType') }}</span><input v-model="form.resourceType" required maxlength="64" /></label>
+            <label><span>{{ t('governance.documentType') }}</span><input v-model="form.documentType" maxlength="80" /></label>
+          </div>
+          <div class="field-grid">
+            <label><span>{{ t('governance.retentionYears') }}</span><input v-model.number="form.retentionYears" type="number" min="1" max="100" required /></label>
+            <label>
+              <span>{{ t('governance.disposition') }}</span>
+              <select v-model="form.dispositionAction">
+                <option value="REVIEW">{{ formatLegalCode('REVIEW', locale) }}</option>
+                <option value="ARCHIVE">{{ formatLegalCode('ARCHIVE', locale) }}</option>
+                <option value="DELETE">{{ formatLegalCode('DELETE', locale) }}</option>
+              </select>
+            </label>
+          </div>
+          <label v-if="editingId" class="check-field">
+            <input v-model="form.enabled" type="checkbox" />
+            <span>{{ t('governance.ruleEnabled') }}</span>
+          </label>
+        </template>
+
+        <template v-else-if="editorMode === 'holds'">
+          <label><span>{{ t('governance.holdName') }}</span><input v-model="form.name" required maxlength="300" /></label>
+          <label><span>{{ t('governance.holdReason') }}</span><textarea v-model="form.reason" required rows="4" maxlength="5000" /></label>
+          <div class="field-grid">
+            <label>
+              <span>{{ t('governance.protectedType') }}</span>
+              <select v-model="form.resourceType" @change="changeResourceType">
+                <option value="MATTER">{{ t('page.matters') }}</option>
+                <option value="CONTRACT">{{ t('page.contracts') }}</option>
+              </select>
+            </label>
+            <label>
+              <span>{{ t('governance.protectedRecord') }}</span>
+              <select v-model="form.resourceId" required>
+                <option v-for="option in resourceOptions()" :key="option.id" :value="option.id">{{ option.label }}</option>
+              </select>
+            </label>
+          </div>
+        </template>
+
+        <template v-else>
+          <aside class="release-warning">
+            <Scale :size="19" />
+            <span>{{ form.name }} · {{ t('governance.releaseWarning') }}</span>
+          </aside>
+          <label><span>{{ t('governance.releaseReason') }}</span><textarea v-model="form.reason" required rows="5" maxlength="5000" /></label>
+        </template>
+
+        <label v-if="['templates', 'clauses'].includes(editorMode)">
+          <span>{{ t('governance.changeNote') }}</span>
+          <input v-model="form.changeNote" maxlength="500" :placeholder="t('governance.changeNoteHint')" />
+        </label>
+
+        <label v-if="['templates', 'clauses', 'rules'].includes(editorMode)">
+          <span>{{ t('governance.officeScope') }}</span>
+          <select v-model="form.officeId">
+            <option v-if="currentUser?.globalOfficeAccess" value="">{{ t('governance.firmWide') }}</option>
+            <option v-for="office in manageableOffices" :key="office.id" :value="office.id">
+              {{ locale === 'en-US' ? office.nameEn : office.nameZh }}
+            </option>
+          </select>
+        </label>
+
+        <footer>
+          <button class="secondary-action" type="button" @click="editorDialog = false">{{ t('common.close') }}</button>
+          <button class="primary-action" type="submit" :disabled="saving">
+            <Save :size="16" />{{ saving ? t('common.saving') : t('governance.save') }}
+          </button>
+        </footer>
+      </form>
+    </el-dialog>
   </section>
 </template>
 
@@ -498,12 +919,13 @@ onMounted(load)
 .workspace-icon { width: 42px; height: 42px; border-radius: 11px; }
 .workspace-heading h3 { margin: 0; font: 700 18px "Songti SC", "Noto Serif CJK SC", serif; }
 .workspace-heading p { margin: 4px 0 0; color: var(--muted); font-size: 10px; }
+.workspace-actions { display: flex; align-items: center; gap: 8px; }
 .record-count { padding: 5px 9px; border-radius: 999px; background: var(--forest-3); color: var(--forest-2); font-size: 10px; font-weight: 650; }
 .governance-list { display: grid; }
 .governance-list article {
   min-height: 78px;
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) minmax(210px, auto);
+  grid-template-columns: 38px minmax(0, 1fr) minmax(210px, auto) auto;
   gap: 13px;
   align-items: center;
   padding: 13px 20px;
@@ -523,6 +945,61 @@ onMounted(load)
 .risk-label { width: max-content; display: block; padding: 5px 9px; border-radius: 999px; background: var(--brass-soft); color: var(--brass); font-size: 9px; font-weight: 700; }
 .risk-label.high { background: #f4e4e2; color: var(--oxblood); }
 .risk-label.low { background: var(--forest-3); color: var(--forest-2); }
+.record-action {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  color: var(--forest-2);
+  cursor: pointer;
+}
+.record-action:hover { border-color: #9ab0a5; background: var(--forest-3); }
+.record-action.release { color: var(--oxblood); }
+.governance-editor { display: grid; gap: 13px; }
+.governance-editor > aside {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 13px;
+  border-radius: 9px;
+  background: var(--forest-3);
+  color: var(--forest-2);
+  font-size: 10px;
+}
+.governance-editor > aside.release-warning { background: #f7ece9; color: var(--oxblood); }
+.governance-editor label { display: grid; gap: 6px; }
+.governance-editor label > span { color: var(--muted); font-size: 9px; font-weight: 700; }
+.governance-editor input:not([type="checkbox"]),
+.governance-editor select,
+.governance-editor textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 10px;
+  background: white;
+  color: var(--ink);
+  font: inherit;
+  line-height: 1.55;
+}
+.governance-editor input:not([type="checkbox"]), .governance-editor select { height: 39px; }
+.governance-editor textarea { resize: vertical; }
+.governance-editor input:focus, .governance-editor select:focus, .governance-editor textarea:focus {
+  outline: 0;
+  border-color: var(--brass);
+  box-shadow: 0 0 0 3px rgba(138, 106, 45, .1);
+}
+.field-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 11px; }
+.field-grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.governance-editor .check-field { display: flex; align-items: center; gap: 8px; }
+.governance-editor footer { display: flex; justify-content: flex-end; gap: 8px; padding-top: 5px; }
+:global(.governance-editor-dialog .el-dialog__body) {
+  max-height: 78vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
 
 @media (max-width: 1050px) {
   .search-panel { grid-template-columns: 1fr; gap: 14px; }
@@ -538,10 +1015,12 @@ onMounted(load)
   .governance-overview { grid-template-columns: 1fr; }
   .overview-copy small { white-space: normal; }
   .workspace-heading { grid-template-columns: auto 1fr; }
-  .record-count { grid-column: 2; width: max-content; }
+  .workspace-actions { grid-column: 2; flex-wrap: wrap; }
   .governance-list article { grid-template-columns: 36px 1fr; }
   .record-meta { grid-column: 2; min-width: 0; text-align: left; }
+  .record-action { grid-column: 2; }
   .record-meta .status-pill, .risk-label { margin-left: 0; }
   .search-results-panel > header { align-items: flex-start; flex-direction: column; }
+  .field-grid, .field-grid.three { grid-template-columns: 1fr; }
 }
 </style>
